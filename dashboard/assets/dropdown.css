@@ -1,0 +1,88 @@
+/* --- dcc.Dropdown dark-theme overrides --- */
+
+/* Closed-state control (the visible input box) */
+.Select-control {
+    background-color: #303030 !important;
+    border: 1px solid #555 !important;
+    color: #eee !important;
+}
+
+/* Open-state control */
+.Select.is-open > .Select-control {
+    background-color: #303030 !important;
+    border-color: #636EFA !important;
+}
+
+/* Selected value text + placeholder */
+.Select-value-label,
+.Select-placeholder {
+    color: #eee !important;
+}
+.Select--single > .Select-control .Select-value {
+    color: #eee !important;
+}
+
+/* Multi-select value chips */
+.Select--multi .Select-value {
+    background-color: #444 !important;
+    border-color: #636EFA !important;
+    color: #eee !important;
+}
+.Select--multi .Select-value-icon {
+    border-color: #555 !important;
+}
+.Select--multi .Select-value-icon:hover {
+    background-color: #555 !important;
+    color: #fff !important;
+}
+.Select--multi .Select-value-label {
+    color: #eee !important;
+}
+
+/* Text input inside the dropdown */
+.Select-input input {
+    color: #eee !important;
+}
+
+/* Arrow and clear icons */
+.Select-arrow-zone,
+.Select-clear-zone {
+    color: #aaa !important;
+}
+.Select-arrow {
+    border-color: #aaa transparent transparent !important;
+}
+.Select.is-open .Select-arrow {
+    border-color: transparent transparent #aaa !important;
+}
+
+/* Dropdown menu (open state) */
+.Select-menu-outer {
+    background-color: #303030 !important;
+    border: 1px solid #555 !important;
+}
+.VirtualizedSelectOption {
+    background-color: #303030 !important;
+    color: #eee !important;
+}
+.VirtualizedSelectOption:hover,
+.VirtualizedSelectFocusedOption {
+    background-color: #444 !important;
+    color: #fff !important;
+}
+.Select-option {
+    background-color: #303030 !important;
+    color: #eee !important;
+}
+.Select-option:hover,
+.Select-option.is-focused {
+    background-color: #444 !important;
+    color: #fff !important;
+}
+.Select-option.is-selected {
+    background-color: #3a3a5c !important;
+}
+.Select-noresults {
+    background-color: #303030 !important;
+    color: #999 !important;
+}
