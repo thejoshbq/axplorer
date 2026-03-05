@@ -127,29 +127,21 @@ def _process_fov(phase: str, animal_id: str, fov_dir: Path) -> SessionMeta:
         _SkipFOV: If the directory doesn't contain a valid file pair.
     """
     # Find .npy signal files matching the expected pattern.
-    npy_files = list(fov_dir.glob("*extractedsignals_raw.npy"))
+    npy_files = sorted(fov_dir.glob("*extractedsignals_raw.npy"))
     logger.debug("FOV %s: found %d .npy files", fov_dir, len(npy_files))
 
     if len(npy_files) == 0:
         raise _SkipFOV("no *extractedsignals_raw.npy file found")
-    if len(npy_files) > 1:
-        raise _SkipFOV(
-            f"multiple .npy files found: {[f.name for f in npy_files]}"
-        )
 
     # Find .mat event files (exclude any with 'extractedsignals' in the name).
-    mat_files = [
+    mat_files = sorted(
         f for f in fov_dir.glob("*.mat")
         if "extractedsignals" not in f.name.lower()
-    ]
+    )
     logger.debug("FOV %s: found %d .mat files", fov_dir, len(mat_files))
 
     if len(mat_files) == 0:
         raise _SkipFOV("no .mat event file found")
-    if len(mat_files) > 1:
-        raise _SkipFOV(
-            f"multiple .mat files found: {[f.name for f in mat_files]}"
-        )
 
     # Normalize FOV name: strip internal whitespace.
     raw_fov = fov_dir.name
@@ -167,8 +159,8 @@ def _process_fov(phase: str, animal_id: str, fov_dir: Path) -> SessionMeta:
         sex=sex,
         fov=normalized_fov,
         is_tracked="_tracked" in normalized_fov.lower(),
-        npy_path=npy_files[0].resolve(),
-        mat_path=mat_files[0].resolve(),
+        npy_paths=tuple(f.resolve() for f in npy_files),
+        mat_paths=tuple(f.resolve() for f in mat_files),
     )
 
 

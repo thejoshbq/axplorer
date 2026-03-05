@@ -22,7 +22,10 @@ from pynapse.analysis.peri_event import SampleEventTensor
 from pynapse.config.events import COLORS
 from pynapse.core import Sample
 
-from dashboard.theme import DASHBOARD_COLOR_OVERRIDES
+_COLOR_OVERRIDES: dict[str, str] = {
+    "active_lever_timeout": "#FFC107",
+    "timeout_lever_press": "#FFC107",
+}
 
 
 class SessionWrapper:
@@ -218,7 +221,7 @@ class SessionWrapper:
         Returns:
             Color string in 6-char hex or ``rgba()`` format.
         """
-        color = DASHBOARD_COLOR_OVERRIDES.get(label) or COLORS.get(label, "#9e9e9e")
+        color = _COLOR_OVERRIDES.get(label) or COLORS.get(label, "#9e9e9e")
         if len(color) == 9 and color.startswith("#"):
             r = int(color[1:3], 16)
             g = int(color[3:5], 16)

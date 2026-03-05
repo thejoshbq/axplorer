@@ -1,0 +1,137 @@
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/JetBrainsMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-surface: 10 10 10;
+    --color-panel: 14 18 20;
+    --color-text-primary: 210 245 245;
+    --color-text-secondary: 120 175 175;
+    --color-accent: 0 212 216;
+    --color-accent-hover: 0 175 180;
+    --color-accent-contrast: 0 0 0;
+    --color-border: 0 212 216;
+    --color-input: 6 8 10;
+
+    --font-body: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.625rem;
+    --glass-opacity: 0.85;
+    --glass-blur: 6px;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+}
+
+body {
+  @apply min-h-screen;
+  font-family: var(--font-body);
+  background-color: rgb(var(--color-surface));
+}
+
+/* Custom scrollbar */
+.dark ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: rgb(var(--color-surface));
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-accent) / 0.2);
+  border-radius: 3px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-accent) / 0.4);
+}
+
+.dark ::selection {
+  background: rgb(var(--color-accent) / 0.25);
+  color: rgb(var(--color-accent));
+}
+
+/* Keyframe animations */
+@keyframes btn-flash {
+  0% { box-shadow: 0 0 0 0 rgb(var(--color-accent) / 0.4); }
+  100% { box-shadow: 0 0 0 8px rgb(var(--color-accent) / 0); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px rgb(var(--color-accent) / 0.15); }
+  50% { box-shadow: 0 0 16px rgb(var(--color-accent) / 0.35); }
+}
+
+.title-glow {
+  filter: drop-shadow(0 0 8px rgb(var(--color-accent) / 0.4));
+}
+
+@layer components {
+  .btn-sm {
+    @apply px-3 py-1 text-sm font-medium transition-all duration-150 ease-out
+           hover:brightness-110 hover:shadow-md
+           active:scale-95 active:brightness-90 active:shadow-sm
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-1 focus-visible:ring-offset-surface;
+    font-family: var(--font-body);
+    border-radius: var(--radius-sm);
+  }
+
+  .card {
+    @apply border border-theme-border bg-panel p-4 space-y-3;
+    border-radius: var(--radius-lg);
+  }
+
+  .input-base {
+    @apply border border-theme-border bg-input px-2 py-1 text-sm text-theme-text
+           focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30;
+    font-family: var(--font-body);
+    border-radius: var(--radius-sm);
+  }
+
+  .glass-panel {
+    background: rgb(var(--color-panel) / var(--glass-opacity));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
+
+  .neural-divider {
+    @apply h-px w-full;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(var(--color-accent) / 0.3),
+      transparent
+    );
+  }
+}

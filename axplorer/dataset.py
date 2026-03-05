@@ -94,12 +94,12 @@ class Dataset:
         from axplorer.ingestion.loader import load_session_files
 
         sample, metadata = load_session_files(
-            signal_path=session_meta.npy_path,
-            event_path=session_meta.mat_path,
+            signal_path=list(session_meta.npy_paths),
+            event_path=list(session_meta.mat_paths),
             fps=fps,
             frame_averaging=frame_averaging,
             task_type=task_type,
-            session_name=session_meta.npy_path.stem,
+            session_name=session_meta.npy_paths[0].stem,
         )
         wrapper = SessionWrapper(sample)
         return Session(meta=session_meta, metadata=metadata, wrapper=wrapper)
@@ -136,7 +136,7 @@ class Dataset:
         """Return a DataFrame summary of all sessions.
 
         Columns: ``phase``, ``animal_id``, ``sex``, ``fov``,
-        ``is_tracked``, ``npy_path``, ``mat_path``, ``npy_size_mb``,
+        ``is_tracked``, ``npy_paths``, ``mat_paths``, ``npy_size_mb``,
         ``mat_size_mb``.
 
         Returns:
@@ -144,16 +144,20 @@ class Dataset:
         """
         rows = []
         for s in self._sessions:
-            npy_size = s.npy_path.stat().st_size / (1024 * 1024) if s.npy_path.exists() else 0.0
-            mat_size = s.mat_path.stat().st_size / (1024 * 1024) if s.mat_path.exists() else 0.0
+            npy_size = sum(
+                p.stat().st_size / (1024 * 1024) for p in s.npy_paths if p.exists()
+            )
+            mat_size = sum(
+                p.stat().st_size / (1024 * 1024) for p in s.mat_paths if p.exists()
+            )
             rows.append({
                 "phase": s.phase,
                 "animal_id": s.animal_id,
                 "sex": s.sex,
                 "fov": s.fov,
                 "is_tracked": s.is_tracked,
-                "npy_path": str(s.npy_path),
-                "mat_path": str(s.mat_path),
+                "npy_paths": [str(p) for p in s.npy_paths],
+                "mat_paths": [str(p) for p in s.mat_paths],
                 "npy_size_mb": round(npy_size, 2),
                 "mat_size_mb": round(mat_size, 2),
             })
@@ -229,12 +233,12 @@ def _worker_load_and_apply(
     from axplorer.ingestion.loader import load_session_files
 
     sample, metadata = load_session_files(
-        signal_path=meta.npy_path,
-        event_path=meta.mat_path,
+        signal_path=list(meta.npy_paths),
+        event_path=list(meta.mat_paths),
         fps=fps,
         frame_averaging=frame_averaging,
         task_type=task_type,
-        session_name=meta.npy_path.stem,
+        session_name=meta.npy_paths[0].stem,
     )
     wrapper = SessionWrapper(sample)
     session = Session(meta=meta, metadata=metadata, wrapper=wrapper)

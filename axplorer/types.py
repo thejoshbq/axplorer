@@ -23,8 +23,8 @@ class SessionMeta:
     sex: str
     fov: str
     is_tracked: bool
-    npy_path: Path
-    mat_path: Path
+    npy_paths: tuple[Path, ...]
+    mat_paths: tuple[Path, ...]
 
 
 @dataclass

@@ -39,8 +39,8 @@ def sample_metas(tmp_path: Path) -> list[SessionMeta]:
                 sex=sex,
                 fov=fov,
                 is_tracked=tracked,
-                npy_path=npy_path,
-                mat_path=mat_path,
+                npy_paths=(npy_path,),
+                mat_paths=(mat_path,),
             )
         )
     return metas
@@ -101,7 +101,7 @@ class TestDataset:
         assert len(df) == 4
         expected_cols = {
             "phase", "animal_id", "sex", "fov", "is_tracked",
-            "npy_path", "mat_path", "npy_size_mb", "mat_size_mb",
+            "npy_paths", "mat_paths", "npy_size_mb", "mat_size_mb",
         }
         assert set(df.columns) == expected_cols
 
@@ -162,8 +162,8 @@ class TestLoadDataset:
         """load_dataset() returns a Dataset wrapping discover_sessions()."""
         mock_meta = SessionMeta(
             phase="p", animal_id="a-1F", sex="F", fov="FOV1",
-            is_tracked=False, npy_path=tmp_path / "a.npy",
-            mat_path=tmp_path / "a.mat",
+            is_tracked=False, npy_paths=(tmp_path / "a.npy",),
+            mat_paths=(tmp_path / "a.mat",),
         )
 
         with patch("axplorer.dataset.discover_sessions", return_value=[mock_meta]):

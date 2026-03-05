@@ -34,8 +34,8 @@ class LoadError(Exception):
 
 
 def load_session_files(
-    signal_path: str | Path,
-    event_path: str | Path,
+    signal_path: str | Path | list[str | Path],
+    event_path: str | Path | list[str | Path],
     fps: float = 30.0,
     frame_averaging: int = 4,
     task_type: str | None = None,
@@ -48,14 +48,16 @@ def load_session_files(
     summary from the resulting object.
 
     Args:
-        signal_path: Path to ``.npy`` signal file (neurons x frames).
-        event_path: Path to ``.xlsx`` or ``.mat`` event file.
+        signal_path: Path(s) to ``.npy`` signal file(s) (neurons x frames).
+            A single path or a list of paths for multi-file FOVs.
+        event_path: Path(s) to ``.xlsx`` or ``.mat`` event file(s).
+            A single path or a list of paths for multi-file FOVs.
         fps: Raw imaging frame rate in Hz.
         frame_averaging: Number of raw frames binned into each signal frame.
         task_type: One of ``'reacher'``, ``'legacy_her'``, or
             ``'legacy_eth'``. Auto-detected from the event file if ``None``.
-        session_name: Human-readable session label. Defaults to the signal
-            file stem (filename without extension).
+        session_name: Human-readable session label. Defaults to the first
+            signal file stem (filename without extension).
 
     Returns:
         Tuple of ``(Sample, SessionMetadata)``.
@@ -64,31 +66,41 @@ def load_session_files(
         LoadError: If either file fails validation or the task type is
             unrecognized.
     """
-    signal_path = Path(signal_path)
-    event_path = Path(event_path)
+    # Normalize to lists.
+    if isinstance(signal_path, (str, Path)):
+        signal_paths = [Path(signal_path)]
+    else:
+        signal_paths = [Path(p) for p in signal_path]
+
+    if isinstance(event_path, (str, Path)):
+        event_paths = [Path(p) for p in ([event_path] if isinstance(event_path, (str, Path)) else event_path)]
+    else:
+        event_paths = [Path(p) for p in event_path]
 
     # ------------------------------------------------------------------
-    # 1. Validate both files, collecting all errors before bailing out
+    # 1. Validate all files, collecting all errors before bailing out
     # ------------------------------------------------------------------
     errors: list[str] = []
 
-    sig_result = validate_signal_file(signal_path)
-    if not sig_result.valid:
-        errors.extend(sig_result.errors)
+    for sp in signal_paths:
+        sig_result = validate_signal_file(sp)
+        if not sig_result.valid:
+            errors.extend(sig_result.errors)
 
-    evt_result = validate_event_file(event_path)
-    if not evt_result.valid:
-        errors.extend(evt_result.errors)
+    for ep in event_paths:
+        evt_result = validate_event_file(ep)
+        if not evt_result.valid:
+            errors.extend(evt_result.errors)
 
     if errors:
         raise LoadError(errors)
 
     # ------------------------------------------------------------------
-    # 2. Resolve task type
+    # 2. Resolve task type (use the first event file for detection)
     # ------------------------------------------------------------------
     if task_type is None:
         try:
-            task_type = detect_task_type(event_path)
+            task_type = detect_task_type(event_paths[0])
         except ValueError as exc:
             raise LoadError([str(exc)]) from exc
 
@@ -109,15 +121,24 @@ def load_session_files(
     # 4. Derive session name
     # ------------------------------------------------------------------
     if session_name is None:
-        session_name = signal_path.stem
+        session_name = signal_paths[0].stem
 
     # ------------------------------------------------------------------
-    # 5. Construct Pynapse Sample
+    # 5. Construct Pynapse Sample (supports multi-file natively)
     # ------------------------------------------------------------------
+    signal_data: str | list[str] = (
+        [str(p) for p in signal_paths] if len(signal_paths) > 1
+        else str(signal_paths[0])
+    )
+    event_data: str | list[str] = (
+        [str(p) for p in event_paths] if len(event_paths) > 1
+        else str(event_paths[0])
+    )
+
     try:
         sample = Sample(
-            event_data=str(event_path),
-            signal_data=str(signal_path),
+            event_data=event_data,
+            signal_data=signal_data,
             name=session_name,
             event_dict=event_dict,
             fps=fps,

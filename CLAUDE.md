@@ -11,8 +11,13 @@ pip install -e ".[dev]"
 # Pynapse must be installed separately (not on PyPI)
 pip install -e /path/to/pynapse
 
-# Run dashboard
-axplorer                      # launches Dash app at localhost:8050
+# Run app (FastAPI backend + React frontend)
+axplorer                      # launches app at localhost:8050
+
+# Frontend development
+cd web && npm install         # install JS dependencies
+cd web && npm run dev         # dev server on :5173, proxies /api to :8050
+cd web && npm run build       # production build to web/dist/
 
 # Tests
 pytest                        # runs all tests (verbose, short tracebacks via pyproject.toml)
@@ -23,27 +28,38 @@ pytest tests/test_peth.py::TestComputePeth::test_basic_peth -v  # single test
 
 ## Architecture
 
-Two packages: **`axplorer`** (scriptable analysis library) and **`dashboard`** (Plotly Dash UI wrapping axplorer). The entry point `axplorer` CLI command runs `dashboard.app:main`.
+Three packages: **`axplorer`** (scriptable analysis library), **`api`** (FastAPI backend wrapping axplorer), and **`web`** (React 19 + Vite + Tailwind frontend).
+
+The `axplorer` CLI command runs `api.app:main` which serves the FastAPI backend on port 8050 and opens the browser. The built React frontend is served as static files from `web/dist/`.
+
+### API Layer (`api/`)
+
+- **`api/state.py`** -- `DataStore` class holding data hierarchy and loaded sessions (plain Python class, no param dependency).
+- **`api/routers/upload.py`** -- `POST /api/load` loads data, `GET /api/status` returns current state.
+- **`api/routers/analysis.py`** -- `POST /api/compute` computes PETH data, returns JSON with plots and shared y-range.
+- **`api/routers/export.py`** -- `POST /api/export/figure` and `POST /api/export/data` for file downloads.
+- **`api/app.py`** -- FastAPI app creation, router registration, static file serving, uvicorn entry point.
+
+### Frontend (`web/`)
+
+- React 19 + Vite 6 + Tailwind 3.4 + TypeScript
+- Zustand stores: `useThemeStore`, `useDataStore`, `useAnalysisStore`, `usePlotStore`
+- Plotly charts via `react-plotly.js` with `plotly.js-cartesian-dist-min` (minimal bundle)
+- Reacher theme: cyan accent (#00D4D8), JetBrains Mono font, neon-grid background, glass morphism
+- Dark/light mode toggle re-themes both UI and Plotly charts
 
 ### Data Flow
 
 ```
-Upload → validate (ingestion/validators.py) → load_session_files() → Sample + SessionMetadata
-  → SessionWrapper (alignment/session.py) → build_pipeline() + get_tensor()
-    → compute_peth() / compute_behavior_summary() → compute_response_metrics() / classify_response()
-      → export_figure() / export_peth_csv() / export_session_hdf5()
+Upload -> validate (ingestion/validators.py) -> load_session_files() -> Sample + SessionMetadata
+  -> SessionWrapper (alignment/session.py) -> build_pipeline() + get_tensor()
+    -> compute_peth() / compute_behavior_summary() -> compute_response_metrics() / classify_response()
+      -> export_figure() / export_peth_csv() / export_session_hdf5()
 ```
 
 ### Pynapse Dependency
 
-Axplorer wraps — never reimplements — Pynapse's core objects. `SessionWrapper` wraps `pynapse.core.Sample`. Preprocessing pipelines are built from Pynapse's `Pipeline`, `DFOverF`, `ZScore`, `GaussianSmoothing`. Peri-event tensors come from `Sample.get_tensor()`. Event dictionaries are resolved via `pynapse.config.events.TASK_TO_DICT`.
-
-### Dashboard Patterns
-
-- **State:** `dashboard/state.py` is an in-memory UUID-keyed store mapping browser session tokens to `SessionWrapper` objects.
-- **Callbacks:** Each tab has a `dashboard/callbacks/*_cb.py` module exposing `register_*_callbacks(app)`. All are registered via `register_all_callbacks()` in `callbacks/__init__.py`.
-- **Layouts:** `dashboard/layouts/__init__.py` assembles sidebar (col-3) + tabbed main area (col-9). Three tabs: Session Overview, Peri-Event Explorer, Export.
-- **Theme:** Dark theme (DARKLY bootstrap + custom `axplorer_dark` Plotly template) defined in `dashboard/theme.py`. Event color overrides also live there.
+Axplorer wraps -- never reimplements -- Pynapse's core objects. `SessionWrapper` wraps `pynapse.core.Sample`. Preprocessing pipelines are built from Pynapse's `Pipeline`, `DFOverF`, `ZScore`, `GaussianSmoothing`. Peri-event tensors come from `Sample.get_tensor()`. Event dictionaries are resolved via `pynapse.config.events.TASK_TO_DICT`.
 
 ### Data Contracts
 

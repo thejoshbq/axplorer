@@ -12,12 +12,12 @@ dependencies = [
     "pandas>=2.0",
     "scipy>=1.10",
     "openpyxl>=3.1",
-    "plotly>=5.18",
-    "dash>=2.14",
-    "dash-bootstrap-components>=1.5",
-    "kaleido>=0.2",
     "h5py>=3.9",
-    "pynapse @ file:///home/thejoshbq/Desktop/Projects/Development/pynapse",
+    "fastapi>=0.104",
+    "uvicorn[standard]>=0.24",
+    "plotly>=5.18",
+    "kaleido>=0.2",
+    "pynapse @ file:///home/thejoshbq/Otis-Lab/Projects/REACHER-Suite/pynapse",
 ]
 
 [project.optional-dependencies]
@@ -27,10 +27,10 @@ dev = [
 ]
 
 [project.scripts]
-axplorer = "dashboard.app:main"
+axplorer = "api.app:main"
 
 [tool.setuptools.packages.find]
-include = ["axplorer*", "dashboard*"]
+include = ["axplorer*", "api*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
