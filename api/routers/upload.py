@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import shutil
+from pathlib import Path
+
 from pydantic import BaseModel
-from fastapi import APIRouter
+from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from api.state import DataStore
+
+_UPLOAD_DIR = Path.home() / ".axplorer"
 
 router = APIRouter(prefix="/api", tags=["upload"])
 
@@ -19,8 +24,10 @@ def get_store() -> DataStore:
 
 
 class LoadRequest(BaseModel):
+    source: str = "filesystem"  # "filesystem" | "database"
     data_level: str
     paths: list[str]
+    db_path: str | None = None  # None → default ~/.pynapse/pynapse.duckdb
 
 
 class LoadResponse(BaseModel):
@@ -41,6 +48,8 @@ class StatusResponse(BaseModel):
 @router.post("/load", response_model=LoadResponse)
 def load_data(req: LoadRequest) -> LoadResponse:
     """Load data at the specified level from the given paths."""
+    store.source = req.source
+    store.db_path = req.db_path
     store.data_level = req.data_level
     store.data_paths = req.paths
     store.load_data()
@@ -50,6 +59,18 @@ def load_data(req: LoadRequest) -> LoadResponse:
         fov_count=len(store.all_wrappers),
         population_count=len(store.hierarchy),
     )
+
+
+@router.post("/db/upload")
+async def upload_db_file(file: UploadFile = File(...)) -> dict:
+    """Upload a .duckdb file and return its server-side path."""
+    if not (file.filename or "").endswith(".duckdb"):
+        raise HTTPException(status_code=400, detail="Only .duckdb files are accepted")
+    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    dest = _UPLOAD_DIR / (file.filename or "upload.duckdb")
+    with dest.open("wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"db_path": str(dest)}
 
 
 @router.get("/status", response_model=StatusResponse)

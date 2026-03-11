@@ -122,6 +122,27 @@ export function ControlsPanel() {
 
       <div className="neural-divider" />
 
+      {/* Heatmap */}
+      <div className="text-xs font-semibold text-[rgb(var(--color-text-secondary))]">Heatmap</div>
+      <label className="flex items-center gap-2 text-xs text-theme-text/80 cursor-pointer">
+        <input type="checkbox" checked={a.enableHeatmap} onChange={(e) => a.setEnableHeatmap(e.target.checked)}
+          className="accent-accent" />
+        Show Heatmap
+      </label>
+      {a.enableHeatmap && (
+        <div>
+          <label className="block text-xs text-theme-text/70 mb-1">Sort Neurons</label>
+          <select value={a.sortMethod} onChange={(e) => a.setSortMethod(e.target.value)} className="input-base w-full">
+            <option value="none">None</option>
+            <option value="excitatory">Excitatory (peak latency)</option>
+            <option value="inhibitory">Inhibitory (trough latency)</option>
+            <option value="magnitude">Magnitude (abs peak)</option>
+          </select>
+        </div>
+      )}
+
+      <div className="neural-divider" />
+
       {/* Compute button */}
       <button
         onClick={compute}

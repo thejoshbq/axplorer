@@ -21,7 +21,7 @@ export function ExportPanel() {
 
   const mode = useThemeStore((s) => s.mode);
   const analysis = useAnalysisStore();
-  const { plots, yRange, eventLabel } = usePlotStore();
+  const { plots, yRange, zRange, eventLabel } = usePlotStore();
 
   const hasPlotsToExport = plots.length > 0;
 
@@ -29,7 +29,7 @@ export function ExportPanel() {
     if (!hasPlotsToExport) return;
     setExporting(true);
     try {
-      const blob = await api.exportFigure(plots, yRange, eventLabel, figureFmt, mode === "dark");
+      const blob = await api.exportFigure(plots, yRange, zRange, eventLabel, figureFmt, mode === "dark");
       downloadBlob(blob, `axplorer_peth.${figureFmt}`);
     } catch (err) {
       console.error("Figure export failed:", err);

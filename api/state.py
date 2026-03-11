@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from axplorer.alignment.session import SessionWrapper
+from axplorer.ingestion.db_loader import load_db_hierarchy
 from axplorer.ingestion.discovery import discover_sessions, parse_animal_sex
 from axplorer.ingestion.loader import load_session_files
 
@@ -21,44 +22,60 @@ class DataStore:
     def __init__(self) -> None:
         self.data_level: str = "Project"
         self.data_paths: list[str] = []
+        self.source: str = "filesystem"
+        self.db_path: str | None = None
         self.hierarchy: dict[str, dict[str, list[SessionWrapper]]] = {}
         self.all_wrappers: list[SessionWrapper] = []
         self.available_events: list[str] = []
         self.status: str = "No data loaded."
         self.loading: bool = False
+        self._db_conn = None  # open DuckDB connection shared by DBSample instances
 
     def load_data(self) -> None:
-        """Load data according to data_level and data_paths."""
+        """Load data according to source, data_level, and data_paths."""
         if not self.data_paths:
             self.status = "No paths provided."
             return
+
+        # Close any open DB connection from a previous database load.
+        if self._db_conn is not None:
+            try:
+                self._db_conn.close()
+            except Exception:
+                pass
+            self._db_conn = None
 
         self.loading = True
         self.status = "Loading..."
         hierarchy: dict[str, dict[str, list[SessionWrapper]]] = {}
 
         try:
-            level = self.data_level
-            if level == "Project":
-                hierarchy = self._load_project(self.data_paths[0])
-            elif level == "Population":
-                for p in self.data_paths:
-                    h = self._load_population(p)
-                    for pop, samples in h.items():
-                        hierarchy.setdefault(pop, {}).update(samples)
-            elif level == "Sample":
-                for p in self.data_paths:
-                    h = self._load_sample(p)
-                    for pop, samples in h.items():
-                        hierarchy.setdefault(pop, {}).update(samples)
-            elif level == "FOV":
-                wrappers = []
-                for p in self.data_paths:
-                    w = self._load_fov(p)
-                    if w is not None:
-                        wrappers.append(w)
-                if wrappers:
-                    hierarchy[_DEFAULT_POP] = {_DEFAULT_SAMPLE: wrappers}
+            if self.source == "database":
+                hierarchy, self._db_conn = load_db_hierarchy(
+                    self.data_level, self.data_paths, self.db_path
+                )
+            else:
+                level = self.data_level
+                if level == "Project":
+                    hierarchy = self._load_project(self.data_paths[0])
+                elif level == "Population":
+                    for p in self.data_paths:
+                        h = self._load_population(p)
+                        for pop, samples in h.items():
+                            hierarchy.setdefault(pop, {}).update(samples)
+                elif level == "Sample":
+                    for p in self.data_paths:
+                        h = self._load_sample(p)
+                        for pop, samples in h.items():
+                            hierarchy.setdefault(pop, {}).update(samples)
+                elif level == "FOV":
+                    wrappers = []
+                    for p in self.data_paths:
+                        w = self._load_fov(p)
+                        if w is not None:
+                            wrappers.append(w)
+                    if wrappers:
+                        hierarchy[_DEFAULT_POP] = {_DEFAULT_SAMPLE: wrappers}
         except Exception as exc:
             self.status = f"Error: {exc}"
             self.loading = False

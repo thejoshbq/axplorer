@@ -33,6 +33,7 @@ def _hex_to_rgba(hex_color: str, alpha: float = 1.0) -> str:
 class FigureExportRequest(BaseModel):
     plots: list[dict]
     y_range: list[float]
+    z_range: list[float] = [0.0, 1.0]
     event_label: str
     fmt: str = "png"
     dark: bool = True
@@ -61,7 +62,9 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
         return Response(content=b"", media_type="application/octet-stream")
 
     ncols = min(len(req.plots), 3)
-    nrows = ceil(len(req.plots) / ncols)
+    has_heatmap = any(p.get("heatmap") for p in req.plots)
+    rows_per_plot = 2 if has_heatmap else 1
+    nrows = ceil(len(req.plots) / ncols) * rows_per_plot
 
     # Theme colors
     if req.dark:
@@ -77,16 +80,33 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
 
     from plotly.subplots import make_subplots
 
+    # Build subplot titles and specs.
+    subplot_titles: list[str] = []
+    row_heights: list[float] = []
+    logical_rows = ceil(len(req.plots) / ncols)
+    for lr in range(logical_rows):
+        subplot_titles.extend(
+            req.plots[lr * ncols + c]["title"] if lr * ncols + c < len(req.plots) else ""
+            for c in range(ncols)
+        )
+        row_heights.append(0.6 if has_heatmap else 1.0)
+        if has_heatmap:
+            subplot_titles.extend("" for _ in range(ncols))
+            row_heights.append(0.4)
+
     fig = make_subplots(
         rows=nrows, cols=ncols,
-        subplot_titles=[p["title"] for p in req.plots],
+        subplot_titles=subplot_titles,
+        shared_xaxes=has_heatmap,
+        row_heights=row_heights,
         horizontal_spacing=0.06,
-        vertical_spacing=0.12,
+        vertical_spacing=0.08,
     )
 
     for idx, pdata in enumerate(req.plots):
-        row = idx // ncols + 1
+        logical_row = idx // ncols
         col = idx % ncols + 1
+        line_row = logical_row * rows_per_plot + 1
         time = np.array(pdata["time"])
         mean = np.array(pdata["mean"])
         sem = np.array(pdata["sem"])
@@ -101,7 +121,7 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
             line=dict(width=0),
             hoverinfo="skip",
             showlegend=False,
-        ), row=row, col=col)
+        ), row=line_row, col=col)
 
         # Mean line
         fig.add_trace(go.Scatter(
@@ -110,13 +130,33 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
             mode="lines",
             line=dict(color=color, width=1.5),
             showlegend=False,
-        ), row=row, col=col)
+        ), row=line_row, col=col)
 
         # Event onset vline
         fig.add_vline(x=0, line_dash="dash", line_color=vline_color, opacity=0.6,
-                      line_width=0.8, row=row, col=col)
+                      line_width=0.8, row=line_row, col=col)
 
-        fig.update_yaxes(range=req.y_range, row=row, col=col)
+        fig.update_yaxes(range=req.y_range, row=line_row, col=col)
+
+        # Heatmap row
+        heatmap_data = pdata.get("heatmap")
+        if has_heatmap and heatmap_data:
+            heatmap_row = line_row + 1
+            fig.add_trace(go.Heatmap(
+                z=heatmap_data["z"],
+                x=time.tolist(),
+                y=heatmap_data.get("neuron_labels", []),
+                zmin=req.z_range[0] if len(req.z_range) == 2 else None,
+                zmax=req.z_range[1] if len(req.z_range) == 2 else None,
+                colorscale="Viridis",
+                showscale=idx == 0,
+                colorbar=dict(
+                    title="Activity", titlefont=dict(color=font_color, size=10),
+                    tickfont=dict(color=font_color, size=9),
+                ),
+            ), row=heatmap_row, col=col)
+            fig.add_vline(x=0, line_dash="dash", line_color=vline_color, opacity=0.6,
+                          line_width=0.8, row=heatmap_row, col=col)
 
     fig.update_layout(
         paper_bgcolor=paper_bg,
@@ -124,10 +164,10 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
         font=dict(color=font_color, family="JetBrains Mono, monospace", size=11),
         title=dict(text=f"PETH: {req.event_label}", font=dict(size=14)),
         width=400 * ncols,
-        height=350 * nrows + 60,
+        height=(350 * rows_per_plot) * logical_rows + 60,
     )
     fig.update_xaxes(gridcolor=grid_color, title_text="Time (s)")
-    fig.update_yaxes(gridcolor=grid_color, title_text="Mean Activity")
+    fig.update_yaxes(gridcolor=grid_color)
 
     fmt = req.fmt.lower()
     content_types = {"png": "image/png", "svg": "image/svg+xml", "pdf": "application/pdf"}

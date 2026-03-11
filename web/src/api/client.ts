@@ -17,6 +17,15 @@ interface ComputeRequest {
   smoothing_sigma: number;
   buffer_ms: number;
   min_trials: number;
+  enable_heatmap: boolean;
+  sort_method: string;
+}
+
+export interface HeatmapData {
+  z: number[][];
+  neuron_labels: string[];
+  n_neurons: number;
+  sort_method: string;
 }
 
 interface PlotData {
@@ -24,11 +33,13 @@ interface PlotData {
   time: number[];
   mean: number[];
   sem: number[];
+  heatmap?: HeatmapData;
 }
 
 interface ComputeResponse {
   plots: PlotData[];
   y_range: number[];
+  z_range: number[];
   event_label: string;
 }
 
@@ -53,10 +64,20 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  loadData: (dataLevel: string, paths: string[]) =>
+  loadData: (
+    source: string,
+    dataLevel: string,
+    paths: string[],
+    dbPath?: string,
+  ) =>
     request<LoadResponse>("/api/load", {
       method: "POST",
-      body: JSON.stringify({ data_level: dataLevel, paths }),
+      body: JSON.stringify({
+        source,
+        data_level: dataLevel,
+        paths,
+        db_path: dbPath ?? null,
+      }),
     }),
 
   getStatus: () => request<StatusResponse>("/api/status"),
@@ -70,6 +91,7 @@ export const api = {
   exportFigure: async (
     plots: PlotData[],
     yRange: number[],
+    zRange: number[],
     eventLabel: string,
     fmt: string,
     dark: boolean,
@@ -77,10 +99,18 @@ export const api = {
     const res = await fetch("/api/export/figure", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plots, y_range: yRange, event_label: eventLabel, fmt, dark }),
+      body: JSON.stringify({ plots, y_range: yRange, z_range: zRange, event_label: eventLabel, fmt, dark }),
     });
     if (!res.ok) throw new Error(`Export failed: ${res.status}`);
     return res.blob();
+  },
+
+  uploadDbFile: async (file: File): Promise<{ db_path: string }> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/db/upload", { method: "POST", body: form });
+    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+    return res.json();
   },
 
   exportData: async (params: {

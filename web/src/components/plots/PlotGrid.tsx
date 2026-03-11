@@ -1,9 +1,10 @@
 import { usePlotStore } from "../../store/usePlotStore";
 import { PETHChart } from "./PETHChart";
+import { HeatmapChart } from "./HeatmapChart";
 import { Loader2 } from "lucide-react";
 
 export function PlotGrid() {
-  const { plots, yRange, eventLabel, computing, error } = usePlotStore();
+  const { plots, yRange, zRange, eventLabel, computing, error } = usePlotStore();
 
   if (computing) {
     return (
@@ -48,6 +49,9 @@ export function PlotGrid() {
               yRange={yRange}
               colorIndex={idx}
             />
+            {p.heatmap && (
+              <HeatmapChart heatmap={p.heatmap} time={p.time} zRange={zRange} />
+            )}
           </div>
         ))}
       </div>

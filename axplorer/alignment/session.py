@@ -21,6 +21,7 @@ from pynapse.analysis.preprocessing.epoch import (
 from pynapse.analysis.peri_event import SampleEventTensor
 from pynapse.config.events import COLORS
 from pynapse.core import Sample
+from pynapse.db.hydrate import DBSample
 
 _COLOR_OVERRIDES: dict[str, str] = {
     "active_lever_timeout": "#FFC107",
@@ -35,11 +36,15 @@ class SessionWrapper:
         sample: The underlying ``pynapse.core.Sample`` instance.
     """
 
-    def __init__(self, sample: Sample) -> None:
+    def __init__(self, sample: Sample | DBSample) -> None:
         self.sample = sample
 
-        # Pre-compute reverse lookup: label → event code
-        code_dict = sample.get_event_log().get_code_dict()
+        # Pre-compute reverse lookup: label → event code.
+        # DBSample exposes get_event_dict() instead of get_event_log().get_code_dict().
+        if hasattr(sample, "get_event_log"):
+            code_dict = sample.get_event_log().get_code_dict()
+        else:
+            code_dict = sample.get_event_dict()  # DBSample path
         self._label_to_code: Dict[str, int] = {v: k for k, v in code_dict.items()}
         self._code_to_label: Dict[int, str] = dict(code_dict)
 
