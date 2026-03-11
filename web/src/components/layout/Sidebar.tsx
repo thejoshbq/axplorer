@@ -26,11 +26,11 @@ export function Sidebar() {
       <Section title="Data Upload">
         <UploadPanel />
       </Section>
-      <div className="neural-divider" />
+      <div className="h-line" data-prefix="01 //" />
       <Section title="Analysis">
         <ControlsPanel />
       </Section>
-      <div className="neural-divider" />
+      <div className="h-line" data-prefix="02 //" />
       <Section title="Export">
         <ExportPanel />
       </Section>

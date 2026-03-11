@@ -28,9 +28,13 @@ export function Header() {
     <header className="glass-panel border-b border-theme-border px-6 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <BrainSearchIcon />
-        <h1 className="text-xl font-bold text-accent title-glow tracking-wide">
-          Axplorer
+        <h1 className="text-xl font-bold text-accent title-glow tracking-wide glitch-hover">
+          // Axplorer
         </h1>
+        <div className="sys-online">
+          <div className="pulse-dot" />
+          <span className="sys-label">SYS_ONLINE</span>
+        </div>
       </div>
       <ThemeToggle />
     </header>

@@ -79,8 +79,7 @@ def compute_peth(
         windows = np.zeros((0, n_neurons, n_time_pts), dtype=np.float32)
 
     # Resolve event label.
-    code_dict = session.sample.get_event_log().get_code_dict()
-    event_label = code_dict.get(event_id, str(event_id))
+    event_label = session._code_to_label.get(event_id, str(event_id))
 
     return PETHResult(
         event_windows=windows,
@@ -94,17 +93,21 @@ def compute_peth(
     )
 
 
-def compute_sorted_heatmap(
-    peth: PETHResult,
+def sort_neuron_matrix(
+    mean: NDArray,
+    time_axis: NDArray,
+    post_event_s: float,
     sort_epoch: Tuple[float, float] | None = None,
     sort_method: str = "excitatory",
 ) -> Tuple[NDArray[np.float32], NDArray[np.intp]]:
-    """Sort neurons in a PETH result by response characteristics.
+    """Sort a (neurons, time) matrix by response characteristics.
 
     Args:
-        peth: A ``PETHResult`` to sort.
-        sort_epoch: Optional (start_s, end_s) time window for sorting.
-            Defaults to the post-event epoch (0 to post_event_s).
+        mean: Array of shape ``(neurons, time)`` to sort.
+        time_axis: Corresponding time axis of length ``time``.
+        post_event_s: Post-event window in seconds (used as default epoch end).
+        sort_epoch: Optional ``(start_s, end_s)`` time window for sorting.
+            Defaults to the post-event epoch ``(0, post_event_s)``.
         sort_method: Sorting strategy:
             - ``'excitatory'``: by peak latency (ascending).
             - ``'inhibitory'``: by trough latency (ascending).
@@ -114,24 +117,17 @@ def compute_sorted_heatmap(
         Tuple of ``(sorted_mean, sort_indices)`` where *sorted_mean* has
         neurons reordered and *sort_indices* maps new → original order.
     """
-    mean = peth.mean  # (neurons, time)
-    time_axis = peth.time_axis
-
-    # Determine sort epoch.
     if sort_epoch is None:
-        sort_epoch = (0.0, peth.post_event_s)
+        sort_epoch = (0.0, post_event_s)
 
     mask = (time_axis >= sort_epoch[0]) & (time_axis <= sort_epoch[1])
     epoch_data = mean[:, mask]
 
     if sort_method == "excitatory":
-        # Sort by peak latency (ascending frame index of max).
         sort_indices = np.argsort(np.argmax(epoch_data, axis=1))
     elif sort_method == "inhibitory":
-        # Sort by trough latency (ascending frame index of min).
         sort_indices = np.argsort(np.argmin(epoch_data, axis=1))
     elif sort_method == "magnitude":
-        # Sort by absolute peak magnitude (descending).
         sort_indices = np.argsort(-np.max(np.abs(epoch_data), axis=1))
     else:
         raise ValueError(
@@ -141,6 +137,31 @@ def compute_sorted_heatmap(
 
     sorted_mean = mean[sort_indices]
     return sorted_mean, sort_indices
+
+
+def compute_sorted_heatmap(
+    peth: PETHResult,
+    sort_epoch: Tuple[float, float] | None = None,
+    sort_method: str = "excitatory",
+) -> Tuple[NDArray[np.float32], NDArray[np.intp]]:
+    """Sort neurons in a PETH result by response characteristics.
+
+    Thin wrapper around :func:`sort_neuron_matrix` that unpacks fields
+    from a ``PETHResult``.
+
+    Args:
+        peth: A ``PETHResult`` to sort.
+        sort_epoch: Optional (start_s, end_s) time window for sorting.
+            Defaults to the post-event epoch (0 to post_event_s).
+        sort_method: Sorting strategy (see :func:`sort_neuron_matrix`).
+
+    Returns:
+        Tuple of ``(sorted_mean, sort_indices)`` where *sorted_mean* has
+        neurons reordered and *sort_indices* maps new → original order.
+    """
+    return sort_neuron_matrix(
+        peth.mean, peth.time_axis, peth.post_event_s, sort_epoch, sort_method
+    )
 
 
 def compute_trial_raster(

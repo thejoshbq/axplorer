@@ -8,7 +8,7 @@ import numpy as np
 from pydantic import BaseModel
 from fastapi import APIRouter
 
-from axplorer.analysis.peth import compute_peth
+from axplorer.analysis.peth import compute_peth, sort_neuron_matrix
 from axplorer.analysis.population import compute_population_peth
 from api.routers.upload import get_store
 
@@ -29,6 +29,15 @@ class ComputeRequest(BaseModel):
     smoothing_sigma: float = 2.0
     buffer_ms: int = 0
     min_trials: int = 3
+    enable_heatmap: bool = True
+    sort_method: str = "none"
+
+
+class HeatmapData(BaseModel):
+    z: list[list[float]]
+    neuron_labels: list[str]
+    n_neurons: int
+    sort_method: str
 
 
 class PlotData(BaseModel):
@@ -36,12 +45,35 @@ class PlotData(BaseModel):
     time: list[float]
     mean: list[float]
     sem: list[float]
+    heatmap: HeatmapData | None = None
 
 
 class ComputeResponse(BaseModel):
     plots: list[PlotData]
     y_range: list[float]
+    z_range: list[float]
     event_label: str
+
+
+def _build_heatmap(
+    matrix: np.ndarray,
+    time_axis: np.ndarray,
+    post_event_s: float,
+    sort_method: str,
+) -> HeatmapData:
+    """Build a ``HeatmapData`` from a (neurons, time) matrix."""
+    n_neurons = matrix.shape[0]
+    if sort_method != "none":
+        matrix, _ = sort_neuron_matrix(
+            matrix, time_axis, post_event_s, sort_method=sort_method,
+        )
+    neuron_labels = [f"Neuron {i}" for i in range(n_neurons)]
+    return HeatmapData(
+        z=matrix.tolist(),
+        neuron_labels=neuron_labels,
+        n_neurons=n_neurons,
+        sort_method=sort_method,
+    )
 
 
 @router.post("/compute", response_model=ComputeResponse)
@@ -50,7 +82,9 @@ def compute(req: ComputeRequest) -> ComputeResponse:
     store = get_store()
 
     if not store.all_wrappers or not req.event_label:
-        return ComputeResponse(plots=[], y_range=[0, 1], event_label=req.event_label)
+        return ComputeResponse(
+            plots=[], y_range=[0, 1], z_range=[0, 1], event_label=req.event_label,
+        )
 
     # Build pipeline from the first wrapper.
     ref_wrapper = store.all_wrappers[0]
@@ -67,6 +101,7 @@ def compute(req: ComputeRequest) -> ComputeResponse:
 
     # Gather plot data by view level.
     plots: list[PlotData] = []
+    heatmap_matrices: list[np.ndarray] = []
 
     if req.view_level == "Population":
         for pop_name, samples in store.hierarchy.items():
@@ -85,11 +120,19 @@ def compute(req: ComputeRequest) -> ComputeResponse:
                     buffer_ms=req.buffer_ms,
                     min_trials=req.min_trials,
                 )
+                heatmap = None
+                if req.enable_heatmap:
+                    heatmap = _build_heatmap(
+                        result.pooled_mean, result.time_axis,
+                        result.post_event_s, req.sort_method,
+                    )
+                    heatmap_matrices.append(result.pooled_mean)
                 plots.append(PlotData(
                     title=f"{pop_name} (n={result.total_neurons})",
                     time=result.time_axis.tolist(),
                     mean=result.grand_mean.tolist(),
                     sem=result.grand_sem.tolist(),
+                    heatmap=heatmap,
                 ))
             except Exception as exc:
                 logger.warning("Population %s failed: %s", pop_name, exc)
@@ -109,12 +152,20 @@ def compute(req: ComputeRequest) -> ComputeResponse:
                         buffer_ms=req.buffer_ms,
                         min_trials=req.min_trials,
                     )
+                    heatmap = None
+                    if req.enable_heatmap:
+                        heatmap = _build_heatmap(
+                            result.pooled_mean, result.time_axis,
+                            result.post_event_s, req.sort_method,
+                        )
+                        heatmap_matrices.append(result.pooled_mean)
                     label = f"{pop_name}/{sample_name}" if pop_name != "default" else sample_name
                     plots.append(PlotData(
                         title=f"{label} (n={result.total_neurons})",
                         time=result.time_axis.tolist(),
                         mean=result.grand_mean.tolist(),
                         sem=result.grand_sem.tolist(),
+                        heatmap=heatmap,
                     ))
                 except Exception as exc:
                     logger.warning("Sample %s/%s failed: %s", pop_name, sample_name, exc)
@@ -136,11 +187,19 @@ def compute(req: ComputeRequest) -> ComputeResponse:
                         mean_trace = np.nanmean(peth.mean, axis=0)
                         sem_trace = np.nanmean(peth.sem, axis=0)
                         n_neurons = peth.mean.shape[0]
+                        heatmap = None
+                        if req.enable_heatmap:
+                            heatmap = _build_heatmap(
+                                peth.mean, peth.time_axis,
+                                peth.post_event_s, req.sort_method,
+                            )
+                            heatmap_matrices.append(peth.mean)
                         plots.append(PlotData(
                             title=f"{wrapper.name} (n={n_neurons})",
                             time=peth.time_axis.tolist(),
                             mean=mean_trace.tolist(),
                             sem=sem_trace.tolist(),
+                            heatmap=heatmap,
                         ))
                     except Exception as exc:
                         logger.warning("FOV %s failed: %s", wrapper.name, exc)
@@ -156,4 +215,15 @@ def compute(req: ComputeRequest) -> ComputeResponse:
     else:
         y_range = [0.0, 1.0]
 
-    return ComputeResponse(plots=plots, y_range=y_range, event_label=req.event_label)
+    # Compute shared z-range across all heatmap matrices.
+    if heatmap_matrices:
+        global_zmin = float(min(np.nanmin(m) for m in heatmap_matrices))
+        global_zmax = float(max(np.nanmax(m) for m in heatmap_matrices))
+        z_margin = (global_zmax - global_zmin) * 0.05
+        z_range = [global_zmin - z_margin, global_zmax + z_margin]
+    else:
+        z_range = [0.0, 1.0]
+
+    return ComputeResponse(
+        plots=plots, y_range=y_range, z_range=z_range, event_label=req.event_label,
+    )

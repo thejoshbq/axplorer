@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { api } from "../api/client";
 
 interface DataStore {
+  source: "filesystem" | "database";
+  dbPath: string;
   dataLevel: string;
   paths: string[];
   loading: boolean;
@@ -10,6 +12,8 @@ interface DataStore {
   fovCount: number;
   populationCount: number;
 
+  setSource: (source: "filesystem" | "database") => void;
+  setDbPath: (path: string) => void;
   setDataLevel: (level: string) => void;
   addPath: (path: string) => void;
   removePath: (path: string) => void;
@@ -17,6 +21,8 @@ interface DataStore {
 }
 
 export const useDataStore = create<DataStore>((set, get) => ({
+  source: "filesystem",
+  dbPath: "",
   dataLevel: "Project",
   paths: [],
   loading: false,
@@ -25,6 +31,8 @@ export const useDataStore = create<DataStore>((set, get) => ({
   fovCount: 0,
   populationCount: 0,
 
+  setSource: (source) => set({ source }),
+  setDbPath: (path) => set({ dbPath: path }),
   setDataLevel: (level) => set({ dataLevel: level }),
 
   addPath: (path) =>
@@ -37,10 +45,15 @@ export const useDataStore = create<DataStore>((set, get) => ({
     set((s) => ({ paths: s.paths.filter((p) => p !== path) })),
 
   loadData: async () => {
-    const { dataLevel, paths } = get();
+    const { source, dbPath, dataLevel, paths } = get();
     set({ loading: true, status: "Loading..." });
     try {
-      const res = await api.loadData(dataLevel, paths);
+      const res = await api.loadData(
+        source,
+        dataLevel,
+        paths,
+        dbPath || undefined,
+      );
       set({
         loading: false,
         status: res.status,

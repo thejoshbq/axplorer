@@ -12,6 +12,8 @@ interface AnalysisStore {
   smoothingSigma: number;
   bufferMs: number;
   minTrials: number;
+  enableHeatmap: boolean;
+  sortMethod: string;
 
   setEventLabel: (v: string) => void;
   setViewLevel: (v: string) => void;
@@ -24,6 +26,8 @@ interface AnalysisStore {
   setSmoothingSigma: (v: number) => void;
   setBufferMs: (v: number) => void;
   setMinTrials: (v: number) => void;
+  setEnableHeatmap: (v: boolean) => void;
+  setSortMethod: (v: string) => void;
 }
 
 export const useAnalysisStore = create<AnalysisStore>((set) => ({
@@ -38,6 +42,8 @@ export const useAnalysisStore = create<AnalysisStore>((set) => ({
   smoothingSigma: 2.0,
   bufferMs: 0,
   minTrials: 3,
+  enableHeatmap: true,
+  sortMethod: "none",
 
   setEventLabel: (v) => set({ eventLabel: v }),
   setViewLevel: (v) => set({ viewLevel: v }),
@@ -50,4 +56,6 @@ export const useAnalysisStore = create<AnalysisStore>((set) => ({
   setSmoothingSigma: (v) => set({ smoothingSigma: v }),
   setBufferMs: (v) => set({ bufferMs: v }),
   setMinTrials: (v) => set({ minTrials: v }),
+  setEnableHeatmap: (v) => set({ enableHeatmap: v }),
+  setSortMethod: (v) => set({ sortMethod: v }),
 }));

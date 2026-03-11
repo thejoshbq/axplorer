@@ -1,8 +1,15 @@
-# Axplorer
+# Axplorer — Neural Data Analysis Pipeline
 
-**Standardized EDA pipeline for aligned neural and behavioral data.**
+**Standardized EDA pipeline for aligned neural and behavioral data**
 
-`Python >=3.10` &ensp; `v0.1.0`
+[![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/thejoshbq/neural-eda)
+[![Python](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![REACHER Suite](https://img.shields.io/badge/REACHER_Suite-member-orange)](https://github.com/Otis-Lab-MUSC)
+
+*Written by*: Joshua Boquiren
+
+[![](https://img.shields.io/badge/@thejoshbq-grey?style=flat&logo=github)](https://github.com/thejoshbq)
 
 ---
 
@@ -12,7 +19,7 @@ Calcium imaging experiments produce two parallel data streams: a matrix of fluor
 
 Axplorer is a validated ingestion-to-export pipeline that standardizes this workflow. It loads raw `.npy` signal files and `.xlsx` / `.mat` event logs, validates their structure, aligns neural and behavioral timescales via [Pynapse](https://github.com/thejoshbq/pynapse), applies configurable preprocessing (DF/F, Z-score, smoothing), computes peri-event time histograms and response metrics, and exports results as figures, CSVs, or HDF5 archives.
 
-The project has two components. The **`axplorer` library** provides a scriptable Python API for batch analysis and custom workflows. The **interactive dashboard** wraps that library in a Plotly Dash interface with point-and-click configuration, real-time visualization, and one-click export — no code required.
+The project has two components. The **`axplorer` library** provides a scriptable Python API for batch analysis and custom workflows. The **interactive dashboard** wraps that library in a FastAPI + React interface with point-and-click configuration, real-time visualization, and one-click export — no code required.
 
 Axplorer supports three task paradigms: `reacher` (operant reaching with Excel-based event logs), `legacy_her` (heroin self-administration with MATLAB event logs), and `legacy_eth` (ethanol self-administration with MATLAB event logs). Task type can be specified manually or auto-detected from the event file format.
 
@@ -41,9 +48,9 @@ Axplorer supports three task paradigms: `reacher` (operant reaching with Excel-b
 - **Behavioral summary** — active/inactive/timeout press counts, reinforcer count, discrimination index, press rate, cumulative press curves
 
 ### Dashboard
-- Three-tab layout: Session Overview, Peri-Event Explorer, Export
+- Three-panel layout: Upload, Analysis Controls, Export
 - Sidebar with upload zone, session configuration, preprocessing toggles, and peri-event parameter controls
-- Dark-themed UI built on Dash Bootstrap Components
+- Dark-themed UI built on React 19 + Tailwind CSS with glass morphism and Reacher cyan accent
 
 ### Export
 - **Figures** — PNG, SVG, or PDF via Kaleido with configurable resolution
@@ -52,19 +59,13 @@ Axplorer supports three task paradigms: `reacher` (operant reaching with Excel-b
 
 ## Dashboard
 
-The dashboard is organized into three tabs, accessible after loading a session:
+The dashboard is a React 19 single-page application served by the FastAPI backend, organized into three panels accessible after loading a session:
 
 **Session Overview** — Displays session metadata (neuron count, frame count, duration, event counts) and behavioral summary statistics including discrimination index, press rates, and cumulative press curves.
 
-<!-- screenshot: Session Overview tab showing metadata cards and cumulative press curves -->
-
-**Peri-Event Explorer** — The main analysis workspace. Select an event type and neuron subset, configure pre/post-event windows, and click Recompute to generate PETH traces, sorted heatmaps, and trial rasters. All preprocessing parameters are adjustable in the sidebar.
-
-<!-- screenshot: Peri-Event Explorer tab showing PETH traces and sorted heatmap -->
+**Peri-Event Explorer** — The main analysis workspace. Select an event type and neuron subset, configure pre/post-event windows, and click Recompute to generate PETH traces, sorted heatmaps, and trial rasters. All preprocessing parameters are adjustable in the sidebar. Charts are rendered with Plotly via react-plotly.js.
 
 **Export** — Download figures and data from the current analysis. Supports PNG/SVG/PDF for figures, CSV for PETH data, and HDF5 for full session archives.
-
-<!-- screenshot: Export tab showing format selection and download buttons -->
 
 ## Installation
 
@@ -228,26 +229,15 @@ neural-eda/
 │       ├── __init__.py
 │       ├── loader.py                       # load_session_files(), LoadError
 │       └── validators.py                   # File validation & task-type detection
-├── dashboard/                              # Plotly Dash application
-│   ├── __init__.py
-│   ├── app.py                              # create_app(), main()
-│   ├── state.py                            # Server-side session state
-│   ├── theme.py                            # Stylesheets & color overrides
-│   ├── assets/
-│   │   └── dropdown.css                    # Custom dropdown styles
-│   ├── callbacks/
-│   │   ├── __init__.py                     # register_all_callbacks()
-│   │   ├── explorer_cb.py                  # Peri-Event Explorer callbacks
-│   │   ├── export_cb.py                    # Export tab callbacks
-│   │   ├── overview_cb.py                  # Session Overview callbacks
-│   │   └── upload_cb.py                    # File upload & session load callbacks
-│   └── layouts/
-│       ├── __init__.py                     # build_layout() — sidebar + tabs
-│       ├── explorer.py                     # Peri-Event Explorer tab layout
-│       ├── export_panel.py                 # Export tab layout
-│       ├── overview.py                     # Session Overview tab layout
-│       ├── sidebar.py                      # Sidebar: upload, config, preprocessing, peri-event
-│       └── upload.py                       # Upload zone component
+├── api/                                    # FastAPI backend
+│   ├── app.py                              # FastAPI app, uvicorn entry
+│   ├── state.py                            # DataStore — server-side state
+│   └── routers/
+│       ├── upload.py                       # POST /api/load, GET /api/status
+│       ├── analysis.py                     # POST /api/compute
+│       └── export.py                       # POST /api/export/figure, /data
+├── web/                                    # React 19 + Vite 6 + Tailwind
+│   └── src/                                # Components, Zustand stores, Plotly charts
 └── tests/
     ├── __init__.py
     ├── conftest.py                         # Shared fixtures (synthetic samples, temp files)
@@ -422,8 +412,8 @@ pytest --cov
 | scipy | >=1.10 | Gaussian smoothing, MATLAB file loading |
 | openpyxl | >=3.1 | Excel event file reading |
 | plotly | >=5.18 | Interactive figures |
-| dash | >=2.14 | Dashboard framework |
-| dash-bootstrap-components | >=1.5 | Dashboard UI components |
+| fastapi | >=0.104 | Backend REST API |
+| uvicorn[standard] | >=0.24 | ASGI server |
 | kaleido | >=0.2 | Static figure export (PNG/SVG/PDF) |
 | h5py | >=3.9 | HDF5 export |
 | pynapse | local | Neural data backend (event parsing, alignment, tensors) |
@@ -446,4 +436,10 @@ Dev dependencies: `pytest >=7.4`, `pytest-cov >=4.1`
 
 ## License
 
-*No license file has been added to this repository yet.*
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Contact
+
+Joshua Boquiren — [thejoshbq@proton.me](mailto:thejoshbq@proton.me)
+
+[GitHub: thejoshbq/neural-eda](https://github.com/thejoshbq/neural-eda)
