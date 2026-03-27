@@ -27,6 +27,7 @@ class DataStore:
         self.hierarchy: dict[str, dict[str, list[SessionWrapper]]] = {}
         self.all_wrappers: list[SessionWrapper] = []
         self.available_events: list[str] = []
+        self.population_names: list[str] = []
         self.status: str = "No data loaded."
         self.loading: bool = False
         self._db_conn = None  # open DuckDB connection shared by DBSample instances
@@ -76,6 +77,10 @@ class DataStore:
                             wrappers.append(w)
                     if wrappers:
                         hierarchy[_DEFAULT_POP] = {_DEFAULT_SAMPLE: wrappers}
+                elif level == "Files":
+                    wrappers = self._load_files(self.data_paths)
+                    if wrappers:
+                        hierarchy[_DEFAULT_POP] = {_DEFAULT_SAMPLE: wrappers}
         except Exception as exc:
             self.status = f"Error: {exc}"
             self.loading = False
@@ -99,7 +104,9 @@ class DataStore:
         self.hierarchy = hierarchy
         self.all_wrappers = flat
         self.available_events = common
-        self.status = f"Loaded {len(flat)} FOV(s) across {len(hierarchy)} population(s)."
+        self.population_names = sorted(hierarchy.keys())
+        pop_list = ", ".join(sorted(hierarchy.keys()))
+        self.status = f"Loaded {len(flat)} FOV(s) across {len(hierarchy)} population(s): {pop_list}"
         self.loading = False
 
     # ------------------------------------------------------------------
@@ -171,6 +178,24 @@ class DataStore:
         except Exception as exc:
             logger.warning("Failed to load FOV %s: %s", fov_dir, exc)
             return None
+
+    def _load_files(self, paths: list[str]) -> list[SessionWrapper]:
+        """Load individual signal + event files as a single FOV."""
+        signal_paths = [p for p in paths if p.lower().endswith(".npy")]
+        event_paths = [p for p in paths if p.lower().endswith((".mat", ".xlsx"))]
+        if not signal_paths or not event_paths:
+            logger.warning("File pair requires at least one .npy and one .mat/.xlsx file")
+            return []
+        try:
+            sample, _ = load_session_files(
+                signal_path=signal_paths if len(signal_paths) > 1 else signal_paths[0],
+                event_path=event_paths if len(event_paths) > 1 else event_paths[0],
+                session_name=Path(signal_paths[0]).stem,
+            )
+            return [SessionWrapper(sample)]
+        except Exception as exc:
+            logger.warning("Failed to load file pair: %s", exc)
+            return []
 
     def _meta_to_wrapper(self, meta) -> SessionWrapper | None:
         """Convert a SessionMeta to a SessionWrapper."""

@@ -29,7 +29,7 @@ export function ExportPanel() {
     if (!hasPlotsToExport) return;
     setExporting(true);
     try {
-      const blob = await api.exportFigure(plots, yRange, zRange, eventLabel, figureFmt, mode === "dark");
+      const blob = await api.exportFigure(plots, yRange, zRange, eventLabel, figureFmt, mode === "dark", analysis.enableZscore);
       downloadBlob(blob, `axplorer_peth.${figureFmt}`);
     } catch (err) {
       console.error("Figure export failed:", err);

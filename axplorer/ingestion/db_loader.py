@@ -75,6 +75,17 @@ def load_db_hierarchy(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _extract_phase(fov_name: str) -> str:
+    """Extract the phase prefix from a FOV name.
+
+    FOV names follow the pattern ``{Phase}_{FOVLabel}`` (e.g.
+    ``EarlyAcq_FOV1``).  Returns the phase portion, or the full name
+    if no underscore-separated FOV suffix is found.
+    """
+    idx = fov_name.rfind("_FOV")
+    return fov_name[:idx] if idx > 0 else fov_name
+
+
 def _fov_row_to_wrapper(fov_id: int, conn) -> SessionWrapper | None:
     """Wrap a single FOV (by id) in a SessionWrapper.  Logs and returns None on failure."""
     try:
@@ -97,8 +108,11 @@ def _load_project(
             continue
         project_id = int(matched.iloc[0]["id"])
         pops_df = query.list_populations(project_id=project_id, conn=conn)
+        logger.info(
+            "Project %r: found %d DB population(s): %s",
+            name, len(pops_df), pops_df["name"].tolist(),
+        )
         for _, pop_row in pops_df.iterrows():
-            pop_name = str(pop_row["name"])
             pop_id = int(pop_row["id"])
             subjs_df = query.list_subjects(population_id=pop_id, conn=conn)
             for _, subj_row in subjs_df.iterrows():
@@ -108,12 +122,18 @@ def _load_project(
                 for _, fov_row in fovs_df.iterrows():
                     w = _fov_row_to_wrapper(int(fov_row["id"]), conn)
                     if w is not None:
+                        phase = _extract_phase(str(fov_row["name"]))
                         (
                             hierarchy
-                            .setdefault(pop_name, {})
+                            .setdefault(phase, {})
                             .setdefault(subj_name, [])
                             .append(w)
                         )
+    logger.info(
+        "DB hierarchy phases: %s (%d total FOVs)",
+        sorted(hierarchy.keys()),
+        sum(len(ws) for subs in hierarchy.values() for ws in subs.values()),
+    )
     return hierarchy
 
 

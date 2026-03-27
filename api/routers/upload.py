@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from api.state import DataStore
+from axplorer.ingestion.detection import classify_paths
 
 _UPLOAD_DIR = Path.home() / ".axplorer"
 
@@ -24,10 +25,19 @@ def get_store() -> DataStore:
 
 
 class LoadRequest(BaseModel):
-    source: str = "filesystem"  # "filesystem" | "database"
-    data_level: str
+    source: str | None = None  # "filesystem" | "database"; auto-detected if omitted
+    data_level: str | None = None  # auto-detected if omitted
     paths: list[str]
     db_path: str | None = None  # None → default ~/.pynapse/pynapse.duckdb
+
+
+class DetectRequest(BaseModel):
+    paths: list[str]
+
+
+class DetectResponse(BaseModel):
+    source: str
+    data_level: str
 
 
 class LoadResponse(BaseModel):
@@ -35,6 +45,7 @@ class LoadResponse(BaseModel):
     available_events: list[str]
     fov_count: int
     population_count: int
+    population_names: list[str]
 
 
 class StatusResponse(BaseModel):
@@ -43,14 +54,37 @@ class StatusResponse(BaseModel):
     available_events: list[str]
     fov_count: int
     population_count: int
+    population_names: list[str]
+
+
+@router.post("/detect", response_model=DetectResponse)
+def detect_type(req: DetectRequest) -> DetectResponse:
+    """Classify paths and return the detected source + data level."""
+    try:
+        source, level = classify_paths(req.paths)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return DetectResponse(source=source, data_level=level)
 
 
 @router.post("/load", response_model=LoadResponse)
 def load_data(req: LoadRequest) -> LoadResponse:
     """Load data at the specified level from the given paths."""
-    store.source = req.source
+    source = req.source
+    data_level = req.data_level
+
+    if source is None or data_level is None:
+        try:
+            detected_source, detected_level = classify_paths(req.paths)
+            source = source or detected_source
+            data_level = data_level or detected_level
+        except ValueError:
+            source = source or "filesystem"
+            data_level = data_level or "Project"
+
+    store.source = source
     store.db_path = req.db_path
-    store.data_level = req.data_level
+    store.data_level = data_level
     store.data_paths = req.paths
     store.load_data()
     return LoadResponse(
@@ -58,6 +92,7 @@ def load_data(req: LoadRequest) -> LoadResponse:
         available_events=store.available_events,
         fov_count=len(store.all_wrappers),
         population_count=len(store.hierarchy),
+        population_names=store.population_names,
     )
 
 
@@ -82,4 +117,5 @@ def get_status() -> StatusResponse:
         available_events=store.available_events,
         fov_count=len(store.all_wrappers),
         population_count=len(store.hierarchy),
+        population_names=store.population_names,
     )

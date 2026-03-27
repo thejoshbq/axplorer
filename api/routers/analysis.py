@@ -219,8 +219,14 @@ def compute(req: ComputeRequest) -> ComputeResponse:
     if heatmap_matrices:
         global_zmin = float(min(np.nanmin(m) for m in heatmap_matrices))
         global_zmax = float(max(np.nanmax(m) for m in heatmap_matrices))
-        z_margin = (global_zmax - global_zmin) * 0.05
-        z_range = [global_zmin - z_margin, global_zmax + z_margin]
+        if req.enable_zscore:
+            # Symmetric range so 0 maps to the center of the diverging palette.
+            abs_max = max(abs(global_zmin), abs(global_zmax), 1e-6)
+            margin = abs_max * 0.05
+            z_range = [-(abs_max + margin), abs_max + margin]
+        else:
+            z_margin = (global_zmax - global_zmin) * 0.05
+            z_range = [global_zmin - z_margin, global_zmax + z_margin]
     else:
         z_range = [0.0, 1.0]
 

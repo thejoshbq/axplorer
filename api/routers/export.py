@@ -23,6 +23,16 @@ COLOR_PALETTE = [
     "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52",
 ]
 
+SEQUENTIAL_COLORSCALE = [
+    [0, "rgb(0,0,0)"], [0.25, "rgb(0,50,70)"], [0.5, "rgb(0,110,130)"],
+    [0.75, "rgb(0,175,195)"], [1, "rgb(0,229,255)"],
+]
+
+DIVERGING_COLORSCALE = [
+    [0, "rgb(255,0,200)"], [0.25, "rgb(140,0,110)"], [0.5, "rgb(0,0,0)"],
+    [0.75, "rgb(0,120,140)"], [1, "rgb(0,229,255)"],
+]
+
 
 def _hex_to_rgba(hex_color: str, alpha: float = 1.0) -> str:
     h = hex_color.lstrip("#")
@@ -37,6 +47,7 @@ class FigureExportRequest(BaseModel):
     event_label: str
     fmt: str = "png"
     dark: bool = True
+    enable_zscore: bool = True
 
 
 class DataExportRequest(BaseModel):
@@ -142,16 +153,18 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
         heatmap_data = pdata.get("heatmap")
         if has_heatmap and heatmap_data:
             heatmap_row = line_row + 1
+            cscale = DIVERGING_COLORSCALE if req.enable_zscore else SEQUENTIAL_COLORSCALE
+            cbar_title = "Z-score" if req.enable_zscore else "Activity"
             fig.add_trace(go.Heatmap(
                 z=heatmap_data["z"],
                 x=time.tolist(),
                 y=heatmap_data.get("neuron_labels", []),
                 zmin=req.z_range[0] if len(req.z_range) == 2 else None,
                 zmax=req.z_range[1] if len(req.z_range) == 2 else None,
-                colorscale="Viridis",
+                colorscale=cscale,
                 showscale=idx == 0,
                 colorbar=dict(
-                    title="Activity", titlefont=dict(color=font_color, size=10),
+                    title=cbar_title, titlefont=dict(color=font_color, size=10),
                     tickfont=dict(color=font_color, size=9),
                 ),
             ), row=heatmap_row, col=col)

@@ -3,21 +3,24 @@ import { FolderOpen, Plus, Trash2, Upload, Loader2 } from "lucide-react";
 import { api } from "../../api/client";
 import { useDataStore } from "../../store/useDataStore";
 import { StatusIndicator } from "./StatusIndicator";
+import { FileBrowser } from "./FileBrowser";
 
-const DATA_LEVELS = ["FOV", "Sample", "Population", "Project"];
+const DATA_LEVELS = ["FOV", "Sample", "Population", "Project", "Files"];
 
 export function UploadPanel() {
   const {
     source, setSource,
     dbPath, setDbPath,
     dataLevel, setDataLevel,
-    paths, addPath, removePath,
+    paths, addPath, addPaths, removePath,
     loadData, loading,
+    detectedLevel,
   } = useDataStore();
   const [pathInput, setPathInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
 
   const handleDbFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -47,6 +50,10 @@ export function UploadPanel() {
     if (e.key === "Enter") handleAdd();
   };
 
+  const handleBrowseSelect = (selectedPaths: string[]) => {
+    addPaths(selectedPaths);
+  };
+
   const isDatabase = source === "database";
 
   return (
@@ -72,7 +79,12 @@ export function UploadPanel() {
       </div>
 
       <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">Data Level</label>
+        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">
+          Data Level
+          {detectedLevel && (
+            <span className="ml-1 text-accent opacity-70">(auto: {detectedLevel})</span>
+          )}
+        </label>
         <select
           value={dataLevel}
           onChange={(e) => setDataLevel(e.target.value)}
@@ -155,6 +167,13 @@ export function UploadPanel() {
               className="input-base flex-1 min-w-0"
             />
             <button
+              onClick={() => setBrowserOpen(true)}
+              className="btn-sm bg-panel border border-theme-border text-accent"
+              title="Browse filesystem"
+            >
+              <FolderOpen size={14} />
+            </button>
+            <button
               onClick={handleAdd}
               className="btn-sm bg-panel border border-theme-border text-accent"
               title="Add path"
@@ -197,6 +216,12 @@ export function UploadPanel() {
       </button>
 
       <StatusIndicator />
+
+      <FileBrowser
+        open={browserOpen}
+        onClose={() => setBrowserOpen(false)}
+        onSelect={handleBrowseSelect}
+      />
     </div>
   );
 }

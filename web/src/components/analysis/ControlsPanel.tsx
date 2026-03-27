@@ -1,13 +1,26 @@
+import { useEffect } from "react";
 import { Loader2, Play } from "lucide-react";
 import { useDataStore } from "../../store/useDataStore";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import { usePlotStore } from "../../store/usePlotStore";
 
-const VIEW_LEVELS = ["Population", "Sample", "FOV"];
+const DATA_LEVEL_VIEW_LEVELS: Record<string, string[]> = {
+  Project:    ["Population", "Sample", "FOV"],
+  Population: ["Population", "Sample", "FOV"],
+  Sample:     ["Sample", "FOV"],
+  FOV:        ["FOV"],
+};
 
 export function ControlsPanel() {
-  const { availableEvents } = useDataStore();
+  const { availableEvents, dataLevel } = useDataStore();
   const a = useAnalysisStore();
+  const viewLevels = DATA_LEVEL_VIEW_LEVELS[dataLevel] ?? ["Population", "Sample", "FOV"];
+
+  useEffect(() => {
+    if (!viewLevels.includes(a.viewLevel)) {
+      a.setViewLevel(viewLevels[0]);
+    }
+  }, [dataLevel]);
   const { compute, computing } = usePlotStore();
 
   return (
@@ -32,7 +45,7 @@ export function ControlsPanel() {
       <div>
         <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">View Level</label>
         <select value={a.viewLevel} onChange={(e) => a.setViewLevel(e.target.value)} className="input-base w-full">
-          {VIEW_LEVELS.map((l) => (
+          {viewLevels.map((l) => (
             <option key={l} value={l}>{l}</option>
           ))}
         </select>

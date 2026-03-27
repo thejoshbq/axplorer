@@ -8,13 +8,14 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import upload, analysis, export
+from api.routers import upload, analysis, export, browse
 
 app = FastAPI(title="Axplorer", version="0.1.0")
 
 app.include_router(upload.router)
 app.include_router(analysis.router)
 app.include_router(export.router)
+app.include_router(browse.router)
 
 # Serve the built React frontend from web/dist if it exists.
 _dist = Path(__file__).resolve().parent.parent / "web" / "dist"

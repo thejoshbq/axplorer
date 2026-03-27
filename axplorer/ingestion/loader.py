@@ -118,6 +118,19 @@ def load_session_files(
     event_dict = TASK_TO_DICT[task_type]
 
     # ------------------------------------------------------------------
+    # 3.5 Convert .xlsx event files to temp CSV for Pynapse
+    # ------------------------------------------------------------------
+    _temp_files: list[Path] = []
+    converted_event_paths: list[Path] = []
+    for ep in event_paths:
+        if ep.suffix.lower() == ".xlsx":
+            csv_path = _convert_xlsx_to_csv(ep)
+            _temp_files.append(csv_path)
+            converted_event_paths.append(csv_path)
+        else:
+            converted_event_paths.append(ep)
+
+    # ------------------------------------------------------------------
     # 4. Derive session name
     # ------------------------------------------------------------------
     if session_name is None:
@@ -131,44 +144,77 @@ def load_session_files(
         else str(signal_paths[0])
     )
     event_data: str | list[str] = (
-        [str(p) for p in event_paths] if len(event_paths) > 1
-        else str(event_paths[0])
+        [str(p) for p in converted_event_paths]
+        if len(converted_event_paths) > 1
+        else str(converted_event_paths[0])
     )
 
     try:
-        sample = Sample(
-            event_data=event_data,
-            signal_data=signal_data,
+        try:
+            sample = Sample(
+                event_data=event_data,
+                signal_data=signal_data,
+                name=session_name,
+                event_dict=event_dict,
+                fps=fps,
+                frame_averaging=frame_averaging,
+            )
+        except Exception as exc:
+            raise LoadError([f"Pynapse Sample construction failed: {exc}"]) from exc
+
+        # ------------------------------------------------------------------
+        # 6. Build SessionMetadata from the live sample
+        # ------------------------------------------------------------------
+        event_counts = _build_event_counts(sample, event_dict)
+
+        metadata = SessionMetadata(
             name=session_name,
-            event_dict=event_dict,
-            fps=fps,
-            frame_averaging=frame_averaging,
+            n_neurons=sample.num_neurons,
+            n_frames=sample.num_frames,
+            n_events=sample.num_events,
+            event_counts=event_counts,
+            effective_fps=sample.effective_fps,
+            duration_s=sample.num_frames / sample.effective_fps,
+            task_type=task_type,
         )
-    except Exception as exc:
-        raise LoadError([f"Pynapse Sample construction failed: {exc}"]) from exc
 
-    # ------------------------------------------------------------------
-    # 6. Build SessionMetadata from the live sample
-    # ------------------------------------------------------------------
-    event_counts = _build_event_counts(sample, event_dict)
-
-    metadata = SessionMetadata(
-        name=session_name,
-        n_neurons=sample.num_neurons,
-        n_frames=sample.num_frames,
-        n_events=sample.num_events,
-        event_counts=event_counts,
-        effective_fps=sample.effective_fps,
-        duration_s=sample.num_frames / sample.effective_fps,
-        task_type=task_type,
-    )
-
-    return sample, metadata
+        return sample, metadata
+    finally:
+        for tmp in _temp_files:
+            tmp.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _convert_xlsx_to_csv(xlsx_path: Path) -> Path:
+    """Convert a REACHER ``.xlsx`` event file to a temporary CSV for Pynapse.
+
+    Reads the ``Behavior Data`` sheet and writes only the columns that
+    Pynapse's ``EventLog._load_reacher_csv()`` expects: ``device``,
+    ``event``, ``start_timestamp``, ``end_timestamp``.
+
+    Args:
+        xlsx_path: Path to the validated ``.xlsx`` event file.
+
+    Returns:
+        Path to a temporary ``.csv`` file.  Caller is responsible for
+        cleanup (see the ``finally`` block in :func:`load_session_files`).
+    """
+    import tempfile
+
+    import pandas as pd
+
+    df = pd.read_excel(xlsx_path, sheet_name="Behavior Data", engine="openpyxl")
+    cols = ["device", "event", "start_timestamp", "end_timestamp"]
+    tmp = tempfile.NamedTemporaryFile(
+        mode="w", suffix=".csv", delete=False, prefix="axplorer_",
+    )
+    df[cols].to_csv(tmp.name, index=False)
+    tmp.close()
+    return Path(tmp.name)
+
 
 def _build_event_counts(
     sample: Sample,
