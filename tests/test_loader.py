@@ -82,3 +82,32 @@ class TestLoadSessionFiles:
             session_name="custom_name",
         )
         assert meta.name == "custom_name"
+
+    def test_csv_event_load(self, mock_signal_path, reacher_csv_event_file):
+        """A REACHER behavior_events.csv should load exactly like the XLSX path."""
+        sample, meta = load_session_files(
+            signal_path=mock_signal_path,
+            event_path=reacher_csv_event_file,
+            fps=30.0,
+            frame_averaging=4,
+            task_type="reacher",
+        )
+        assert meta.task_type == "reacher"
+        assert meta.n_events > 0
+
+    def test_csv_auto_detects_frame_timestamps_sibling(
+        self, mock_signal_path, reacher_csv_event_file
+    ):
+        """When a frame_timestamps.csv sits next to the CSV event file,
+        pynapse must receive real timestamps rather than a synthetic grid."""
+        sample, _ = load_session_files(
+            signal_path=mock_signal_path,
+            event_path=reacher_csv_event_file,
+            fps=30.0,
+            frame_averaging=4,
+            task_type="reacher",
+        )
+        # Pynapse exposes the external timestamps via the private attribute
+        # when a frame_timestamps path is wired through.
+        external = getattr(sample, "_external_frame_ts", None)
+        assert external is not None

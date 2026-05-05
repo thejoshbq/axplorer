@@ -24,7 +24,8 @@ class SessionMeta:
     fov: str
     is_tracked: bool
     npy_paths: tuple[Path, ...]
-    mat_paths: tuple[Path, ...]
+    event_paths: tuple[Path, ...]
+    frame_timestamps_path: Path | None = None
 
 
 @dataclass

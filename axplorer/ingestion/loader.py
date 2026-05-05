@@ -17,6 +17,7 @@ from axplorer.types import SessionMetadata
 from axplorer.ingestion.validators import (
     validate_signal_file,
     validate_event_file,
+    validate_frame_timestamps_file,
     detect_task_type,
 )
 
@@ -40,6 +41,7 @@ def load_session_files(
     frame_averaging: int = 4,
     task_type: str | None = None,
     session_name: str | None = None,
+    frame_timestamps_path: str | Path | None = None,
 ) -> Tuple[Sample, SessionMetadata]:
     """Load and validate signal + event files into a Pynapse Sample.
 
@@ -50,7 +52,7 @@ def load_session_files(
     Args:
         signal_path: Path(s) to ``.npy`` signal file(s) (neurons x frames).
             A single path or a list of paths for multi-file FOVs.
-        event_path: Path(s) to ``.xlsx`` or ``.mat`` event file(s).
+        event_path: Path(s) to ``.csv``, ``.xlsx``, or ``.mat`` event file(s).
             A single path or a list of paths for multi-file FOVs.
         fps: Raw imaging frame rate in Hz.
         frame_averaging: Number of raw frames binned into each signal frame.
@@ -58,6 +60,12 @@ def load_session_files(
             ``'legacy_eth'``. Auto-detected from the event file if ``None``.
         session_name: Human-readable session label. Defaults to the first
             signal file stem (filename without extension).
+        frame_timestamps_path: Optional path to a REACHER ``frame_timestamps.csv``
+            file. When ``None`` and the first event file is a ``.csv``, a
+            sibling ``frame_timestamps.csv`` (if present) is picked up
+            automatically. Passed through to pynapse's
+            ``Sample(frame_timestamps=...)`` so event→frame alignment uses
+            real acquisition timestamps instead of a synthetic clock grid.
 
     Returns:
         Tuple of ``(Sample, SessionMetadata)``.
@@ -91,6 +99,24 @@ def load_session_files(
         evt_result = validate_event_file(ep)
         if not evt_result.valid:
             errors.extend(evt_result.errors)
+
+    # Auto-detect a sibling frame_timestamps.csv when a REACHER CSV event file
+    # is used and the caller didn't override.
+    resolved_ft_path: Path | None
+    if frame_timestamps_path is None:
+        first_event = event_paths[0] if event_paths else None
+        if first_event is not None and first_event.suffix.lower() == ".csv":
+            sibling = first_event.parent / "frame_timestamps.csv"
+            resolved_ft_path = sibling if sibling.exists() else None
+        else:
+            resolved_ft_path = None
+    else:
+        resolved_ft_path = Path(frame_timestamps_path)
+
+    if resolved_ft_path is not None:
+        ft_result = validate_frame_timestamps_file(resolved_ft_path)
+        if not ft_result.valid:
+            errors.extend(ft_result.errors)
 
     if errors:
         raise LoadError(errors)
@@ -158,6 +184,7 @@ def load_session_files(
                 event_dict=event_dict,
                 fps=fps,
                 frame_averaging=frame_averaging,
+                frame_timestamps=str(resolved_ft_path) if resolved_ft_path is not None else None,
             )
         except Exception as exc:
             raise LoadError([f"Pynapse Sample construction failed: {exc}"]) from exc

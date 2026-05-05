@@ -123,6 +123,9 @@ def _sorted_subdirs(parent: Path) -> list[Path]:
 def _process_fov(phase: str, animal_id: str, fov_dir: Path) -> SessionMeta:
     """Validate a single FOV directory and return its SessionMeta.
 
+    Event-file discovery prefers REACHER-exported CSVs, then falls back to the
+    legacy MATLAB (.mat) and XLSX formats so archived FOVs still load.
+
     Raises:
         _SkipFOV: If the directory doesn't contain a valid file pair.
     """
@@ -133,15 +136,23 @@ def _process_fov(phase: str, animal_id: str, fov_dir: Path) -> SessionMeta:
     if len(npy_files) == 0:
         raise _SkipFOV("no *extractedsignals_raw.npy file found")
 
-    # Find .mat event files (exclude any with 'extractedsignals' in the name).
-    mat_files = sorted(
-        f for f in fov_dir.glob("*.mat")
-        if "extractedsignals" not in f.name.lower()
-    )
-    logger.debug("FOV %s: found %d .mat files", fov_dir, len(mat_files))
+    # Find event files: prefer REACHER CSV, fall back to MAT then XLSX.
+    event_files = sorted(fov_dir.glob("behavior_events*.csv"))
+    if not event_files:
+        event_files = sorted(
+            f for f in fov_dir.glob("*.mat")
+            if "extractedsignals" not in f.name.lower()
+        )
+    if not event_files:
+        event_files = sorted(fov_dir.glob("*.xlsx"))
+    logger.debug("FOV %s: found %d event files", fov_dir, len(event_files))
 
-    if len(mat_files) == 0:
-        raise _SkipFOV("no .mat event file found")
+    if not event_files:
+        raise _SkipFOV("no behavior event file (.csv, .mat, or .xlsx) found")
+
+    # Optional REACHER companion — forwarded to pynapse when present.
+    ft_file = fov_dir / "frame_timestamps.csv"
+    frame_timestamps_path: Path | None = ft_file.resolve() if ft_file.exists() else None
 
     # Normalize FOV name: strip internal whitespace.
     raw_fov = fov_dir.name
@@ -160,7 +171,8 @@ def _process_fov(phase: str, animal_id: str, fov_dir: Path) -> SessionMeta:
         fov=normalized_fov,
         is_tracked="_tracked" in normalized_fov.lower(),
         npy_paths=tuple(f.resolve() for f in npy_files),
-        mat_paths=tuple(f.resolve() for f in mat_files),
+        event_paths=tuple(f.resolve() for f in event_files),
+        frame_timestamps_path=frame_timestamps_path,
     )
 
 

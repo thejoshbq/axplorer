@@ -122,6 +122,61 @@ def bad_event_xlsx(tmp_path: Path) -> Path:
     return path
 
 
+def _make_reacher_csv_pair(dir_: Path, n_events: int = 50) -> tuple[Path, Path]:
+    """Write REACHER-style behavior_events.csv + frame_timestamps.csv."""
+    import csv
+
+    dir_.mkdir(parents=True, exist_ok=True)
+    ifi_ms = 1000.0 / FPS
+    total_duration_ms = N_FRAMES * FRAME_AVG * ifi_ms
+
+    rng = np.random.default_rng(99)
+    devices_events = [
+        ("RH_LEVER", "ACTIVE_PRESS"),
+        ("LH_LEVER", "INACTIVE_PRESS"),
+        ("RH_LEVER", "TIMEOUT_PRESS"),
+        ("PUMP", "INFUSION"),
+        ("CUE", "TONE"),
+    ]
+
+    behavior_path = dir_ / "behavior_events.csv"
+    with behavior_path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["device", "event", "start_timestamp", "end_timestamp"])
+        ts = 30_000.0
+        for i in range(n_events):
+            dev, evt = devices_events[i % len(devices_events)]
+            ts += float(rng.integers(5000, 10000))
+            if ts > total_duration_ms - 30_000:
+                break
+            writer.writerow([dev, evt, ts, ts + 100])
+
+    ft_path = dir_ / "frame_timestamps.csv"
+    with ft_path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["frame_index", "timestamp_ms"])
+        frame_ts = 0.0
+        for j in range(N_FRAMES * FRAME_AVG):
+            writer.writerow([j, frame_ts])
+            frame_ts += ifi_ms
+
+    return behavior_path, ft_path
+
+
+@pytest.fixture()
+def reacher_csv_event_file(tmp_path: Path) -> Path:
+    """Return a REACHER-format behavior_events.csv (with frame_timestamps.csv sibling)."""
+    behavior_path, _ = _make_reacher_csv_pair(tmp_path / "reacher_csv")
+    return behavior_path
+
+
+@pytest.fixture()
+def reacher_frame_timestamps_file(tmp_path: Path) -> Path:
+    """Return a REACHER-format frame_timestamps.csv in its own dir."""
+    _, ft_path = _make_reacher_csv_pair(tmp_path / "reacher_ft")
+    return ft_path
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Loaded session fixture
 # ──────────────────────────────────────────────────────────────────────────

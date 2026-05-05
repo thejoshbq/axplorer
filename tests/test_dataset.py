@@ -40,7 +40,7 @@ def sample_metas(tmp_path: Path) -> list[SessionMeta]:
                 fov=fov,
                 is_tracked=tracked,
                 npy_paths=(npy_path,),
-                mat_paths=(mat_path,),
+                event_paths=(mat_path,),
             )
         )
     return metas
@@ -101,7 +101,7 @@ class TestDataset:
         assert len(df) == 4
         expected_cols = {
             "phase", "animal_id", "sex", "fov", "is_tracked",
-            "npy_paths", "mat_paths", "npy_size_mb", "mat_size_mb",
+            "npy_paths", "event_paths", "npy_size_mb", "event_size_mb",
         }
         assert set(df.columns) == expected_cols
 
@@ -111,7 +111,7 @@ class TestDataset:
         # Files are small (1024 / 512 bytes) so size_mb rounds to 0.0,
         # but the column should exist and be numeric.
         assert df["npy_size_mb"].dtype == float
-        assert df["mat_size_mb"].dtype == float
+        assert df["event_size_mb"].dtype == float
         assert len(df) == 4
 
     def test_repr(self, dataset: Dataset) -> None:
@@ -163,7 +163,7 @@ class TestLoadDataset:
         mock_meta = SessionMeta(
             phase="p", animal_id="a-1F", sex="F", fov="FOV1",
             is_tracked=False, npy_paths=(tmp_path / "a.npy",),
-            mat_paths=(tmp_path / "a.mat",),
+            event_paths=(tmp_path / "a.mat",),
         )
 
         with patch("axplorer.dataset.discover_sessions", return_value=[mock_meta]):

@@ -96,6 +96,14 @@ pip install -e ".[dev]"
 
 This adds `pytest` and `pytest-cov` for running the test suite.
 
+To work on the dashboard with hot reload, start the backend and Vite together:
+
+```bash
+./scripts/dev.sh
+```
+
+This runs `uvicorn api.app:app --reload` on `:8050` and the Vite dev server on `:5173`, then opens `http://localhost:5173`. Vite proxies `/api/*` to the backend. `Ctrl-C` stops both. Use plain `axplorer` only after `cd web && npm run build`; that command serves the pre-built bundle from `web/dist/` and does not pick up frontend source changes.
+
 ## Quick Start
 
 1. **Launch the dashboard:**
