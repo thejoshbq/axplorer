@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Install (editable, with dev deps). Pynapse is pinned as a file:// dep in
-# pyproject.toml at /home/thejoshbq/Otis-Lab/Projects/REACHER-Suite/pynapse;
+# pyproject.toml at /home/thejoshbq/Otis-Lab/Projects/Phoxel-Workbench/pynapse;
 # editing pynapse picks up automatically since both are installed editable.
 pip install -e ".[dev]"
 

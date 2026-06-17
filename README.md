@@ -5,7 +5,7 @@
 [![Version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/thejoshbq/neural-eda)
 [![Python](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![REACHER Suite](https://img.shields.io/badge/REACHER_Suite-member-orange)](https://github.com/Otis-Lab-MUSC)
+[![Phoxel Workbench](https://img.shields.io/badge/Phoxel_Workbench-member-orange)](https://github.com/Otis-Lab-MUSC)
 
 *Written by*: Joshua Boquiren
 
