@@ -54,7 +54,7 @@ export function CyberpunkCursor() {
         style={{
           width: size,
           height: size,
-          border: "1.5px solid rgb(var(--color-accent))",
+          border: "1.5px solid var(--accent)",
           transform: `translate(-50%, -50%) rotate(45deg)`,
           opacity,
           zIndex: 10000,
@@ -67,8 +67,8 @@ export function CyberpunkCursor() {
           width: 4,
           height: 4,
           borderRadius: "50%",
-          backgroundColor: "rgb(var(--color-accent))",
-          boxShadow: "0 0 6px rgb(var(--color-accent)), 0 0 12px rgb(var(--color-accent) / 0.4)",
+          backgroundColor: "var(--accent)",
+          boxShadow: "0 0 6px var(--accent), 0 0 12px color-mix(in srgb, var(--accent) 40%, transparent)",
           zIndex: 10001,
         }}
       />

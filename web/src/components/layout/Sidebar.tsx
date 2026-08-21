@@ -10,19 +10,19 @@ function Section({ title, defaultOpen = true, children }: { title: string; defau
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-2 py-2 text-sm font-semibold text-accent/80 hover:text-accent transition-colors"
+        className="flex w-full items-center gap-s2 py-s2 text-label font-semibold text-ink-muted hover:text-accent transition-colors"
       >
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         {title}
       </button>
-      {open && <div className="space-y-3 pb-2">{children}</div>}
+      {open && <div className="space-y-s3 pb-s2">{children}</div>}
     </div>
   );
 }
 
 export function Sidebar() {
   return (
-    <aside className="glass-panel border-r border-theme-border w-80 min-w-80 overflow-y-auto p-4 space-y-1">
+    <aside className="bg-surface-1 border-r border-edge w-80 min-w-80 overflow-y-auto p-s4 space-y-s1">
       <Section title="Data Upload">
         <UploadPanel />
       </Section>

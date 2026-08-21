@@ -128,13 +128,12 @@ export const api = {
     zRange: number[],
     eventLabel: string,
     fmt: string,
-    dark: boolean,
     enableZscore: boolean,
   ): Promise<Blob> => {
     const res = await fetch("/api/export/figure", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plots, y_range: yRange, z_range: zRange, event_label: eventLabel, fmt, dark, enable_zscore: enableZscore }),
+      body: JSON.stringify({ plots, y_range: yRange, z_range: zRange, event_label: eventLabel, fmt, enable_zscore: enableZscore }),
     });
     if (!res.ok) throw new Error(`Export failed: ${res.status}`);
     return res.blob();

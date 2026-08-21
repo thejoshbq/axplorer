@@ -1,10 +1,11 @@
 import createPlotlyComponent from "react-plotly.js/factory";
 import Plotly from "plotly.js-cartesian-dist-min";
-import { useThemeStore } from "../../store/useThemeStore";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
+import { plotly, color } from "@phoxel/tokens";
 import type { HeatmapData } from "../../api/client";
 
 const Plot = createPlotlyComponent(Plotly);
+const baseLayout = plotly.layout as any;
 
 interface Props {
   heatmap: HeatmapData;
@@ -12,31 +13,27 @@ interface Props {
   zRange: [number, number];
 }
 
+// No sequential/diverging colorscale token exists (only a categorical
+// colorway) -- these stay bespoke, anchored to the accent/surface tokens
+// where they already coincide.
 const SEQUENTIAL_SCALE: [number, string][] = [
-  [0, "rgb(0,0,0)"],
+  [0, color["surface-0"]],
   [0.25, "rgb(0,50,70)"],
   [0.5, "rgb(0,110,130)"],
   [0.75, "rgb(0,175,195)"],
-  [1, "rgb(0,229,255)"],
+  [1, color.accent],
 ];
 
 const DIVERGING_SCALE: [number, string][] = [
   [0, "rgb(255,0,200)"],
   [0.25, "rgb(140,0,110)"],
-  [0.5, "rgb(0,0,0)"],
+  [0.5, color["surface-0"]],
   [0.75, "rgb(0,120,140)"],
-  [1, "rgb(0,229,255)"],
+  [1, color.accent],
 ];
 
 export function HeatmapChart({ heatmap, time, zRange }: Props) {
-  const mode = useThemeStore((s) => s.mode);
   const enableZscore = useAnalysisStore((s) => s.enableZscore);
-  const isDark = mode === "dark";
-
-  const paperBg = isDark ? "rgb(14,18,20)" : "rgb(250,253,253)";
-  const fontColor = isDark ? "rgb(210,245,245)" : "rgb(10,20,20)";
-  const gridColor = isDark ? "rgb(30,40,45)" : "rgb(220,230,230)";
-  const vlineColor = isDark ? "white" : "black";
 
   const colorscale = enableZscore ? DIVERGING_SCALE : SEQUENTIAL_SCALE;
   const height = Math.min(400, Math.max(200, heatmap.n_neurons * 5));
@@ -55,29 +52,20 @@ export function HeatmapChart({ heatmap, time, zRange }: Props) {
           hovertemplate:
             "Time: %{x:.3f}s<br>%{y}<br>Value: %{z:.4f}<extra></extra>",
           colorbar: {
-            title: { text: enableZscore ? "Z-score" : "Activity", side: "right" as const, font: { color: fontColor, size: 10 } },
-            tickfont: { color: fontColor, size: 9 },
-            outlinecolor: gridColor,
+            title: { text: enableZscore ? "Z-score" : "Activity", side: "right" as const, font: baseLayout.font },
+            tickfont: baseLayout.xaxis.tickfont,
+            outlinecolor: baseLayout.xaxis.linecolor,
           },
         },
       ]}
       layout={{
-        paper_bgcolor: paperBg,
-        plot_bgcolor: paperBg,
-        font: {
-          color: fontColor,
-          family: "JetBrains Mono, monospace",
-          size: 11,
-        },
+        ...baseLayout,
         xaxis: {
+          ...baseLayout.xaxis,
           title: { text: "Time (s)" },
-          gridcolor: gridColor,
-          linecolor: "rgba(0,212,216,0.3)",
-          zerolinecolor: gridColor,
         },
         yaxis: {
-          gridcolor: gridColor,
-          linecolor: "rgba(0,212,216,0.3)",
+          ...baseLayout.yaxis,
           autorange: "reversed" as const,
         },
         shapes: [
@@ -87,7 +75,7 @@ export function HeatmapChart({ heatmap, time, zRange }: Props) {
             x1: 0,
             y0: -0.5,
             y1: heatmap.n_neurons - 0.5,
-            line: { dash: "dash", color: vlineColor, width: 0.8 },
+            line: { dash: "dash", color: color["text-strong"], width: 0.8 },
             opacity: 0.6,
           },
         ],

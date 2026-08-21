@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@phoxel/tokens": "github:thejoshbq/phoxel-tokens#v1.0.0",
     "lucide-react": "^0.468.0",
     "plotly.js-cartesian-dist-min": "^2.35.0",
     "react": "^19.0.0",

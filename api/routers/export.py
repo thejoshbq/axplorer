@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 import numpy as np
+import phoxel_tokens as pt
 import plotly.graph_objects as go
 from pydantic import BaseModel
 from fastapi import APIRouter
@@ -18,19 +19,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/export", tags=["export"])
 
-COLOR_PALETTE = [
-    "#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A",
-    "#19D3F3", "#FF6692", "#B6E880", "#FF97FF", "#FECB52",
-]
+_LAYOUT = pt.PLOTLY_TEMPLATE["layout"]
 
+COLOR_PALETTE = _LAYOUT["colorway"]
+
+# No sequential/diverging colorscale token exists (only a categorical
+# colorway) -- these stay bespoke, anchored to the accent/surface tokens
+# where they already coincide.
 SEQUENTIAL_COLORSCALE = [
-    [0, "rgb(0,0,0)"], [0.25, "rgb(0,50,70)"], [0.5, "rgb(0,110,130)"],
-    [0.75, "rgb(0,175,195)"], [1, "rgb(0,229,255)"],
+    [0, pt.COLOR["surface-0"]], [0.25, "rgb(0,50,70)"], [0.5, "rgb(0,110,130)"],
+    [0.75, "rgb(0,175,195)"], [1, pt.COLOR["accent"]],
 ]
 
 DIVERGING_COLORSCALE = [
-    [0, "rgb(255,0,200)"], [0.25, "rgb(140,0,110)"], [0.5, "rgb(0,0,0)"],
-    [0.75, "rgb(0,120,140)"], [1, "rgb(0,229,255)"],
+    [0, "rgb(255,0,200)"], [0.25, "rgb(140,0,110)"], [0.5, pt.COLOR["surface-0"]],
+    [0.75, "rgb(0,120,140)"], [1, pt.COLOR["accent"]],
 ]
 
 
@@ -46,7 +49,6 @@ class FigureExportRequest(BaseModel):
     z_range: list[float] = [0.0, 1.0]
     event_label: str
     fmt: str = "png"
-    dark: bool = True
     enable_zscore: bool = True
 
 
@@ -77,17 +79,11 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
     rows_per_plot = 2 if has_heatmap else 1
     nrows = ceil(len(req.plots) / ncols) * rows_per_plot
 
-    # Theme colors
-    if req.dark:
-        paper_bg = "rgb(14,18,20)"
-        font_color = "rgb(210,245,245)"
-        grid_color = "rgb(30,40,45)"
-        vline_color = "white"
-    else:
-        paper_bg = "rgb(250,253,253)"
-        font_color = "rgb(10,20,20)"
-        grid_color = "rgb(220,230,230)"
-        vline_color = "black"
+    # Theme colors, from the phoxel-tokens Plotly template.
+    paper_bg = _LAYOUT["paper_bgcolor"]
+    font_color = _LAYOUT["font"]["color"]
+    grid_color = _LAYOUT["xaxis"]["gridcolor"]
+    vline_color = pt.COLOR["text-strong"]
 
     from plotly.subplots import make_subplots
 
@@ -164,7 +160,7 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
                 colorscale=cscale,
                 showscale=idx == 0,
                 colorbar=dict(
-                    title=cbar_title, titlefont=dict(color=font_color, size=10),
+                    title=dict(text=cbar_title, font=dict(color=font_color, size=10)),
                     tickfont=dict(color=font_color, size=9),
                 ),
             ), row=heatmap_row, col=col)
@@ -174,7 +170,7 @@ def export_figure_endpoint(req: FigureExportRequest) -> Response:
     fig.update_layout(
         paper_bgcolor=paper_bg,
         plot_bgcolor=paper_bg,
-        font=dict(color=font_color, family="JetBrains Mono, monospace", size=11),
+        font=dict(color=font_color, family=_LAYOUT["font"]["family"], size=11),
         title=dict(text=f"PETH: {req.event_label}", font=dict(size=14)),
         width=400 * ncols,
         height=(350 * rows_per_plot) * logical_rows + 60,

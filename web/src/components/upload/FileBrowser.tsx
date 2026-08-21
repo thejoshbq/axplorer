@@ -121,47 +121,47 @@ export function FileBrowser({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-panel border border-theme-border rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[80vh]">
+      <div className="bg-surface-1 border border-edge rounded-lg shadow-xl w-full max-w-lg flex flex-col max-h-[80vh]">
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-theme-border">
-          <span className="text-xs font-semibold text-theme-text flex-1 truncate">
+        <div className="flex items-center gap-s2 px-s3 py-s2 border-b border-edge">
+          <span className="text-label font-semibold text-ink flex-1 truncate">
             {data?.current ?? "Loading..."}
           </span>
           <button
             onClick={onClose}
-            className="text-theme-text/50 hover:text-theme-text"
+            className="text-ink-faint hover:text-ink"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Navigation bar */}
-        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-theme-border">
+        <div className="flex items-center gap-s1 px-s3 py-s1 border-b border-edge">
           <button
             onClick={() => data?.parent && navigate(data.parent)}
             disabled={!data?.parent}
-            className="btn-sm bg-panel border border-theme-border text-accent disabled:opacity-30"
+            className="btn-sm bg-surface-1 border border-edge text-accent disabled:opacity-30"
             title="Go up"
           >
             <ArrowUp size={14} />
           </button>
-          <span className="text-xs text-theme-text/50 truncate flex-1">
+          <span className="text-label text-ink-faint truncate flex-1">
             {data?.current ?? ""}
           </span>
         </div>
 
         {/* Entry list */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-1 py-1">
+        <div className="flex-1 overflow-y-auto min-h-0 px-s1 py-s1">
           {loading && (
-            <p className="text-xs text-theme-text/50 p-3 text-center">
+            <p className="text-label text-ink-faint p-s3 text-center">
               Loading...
             </p>
           )}
           {error && (
-            <p className="text-xs text-red-400 p-3 text-center">{error}</p>
+            <p className="text-label text-err p-s3 text-center">{error}</p>
           )}
           {!loading && !error && visibleEntries.length === 0 && (
-            <p className="text-xs text-theme-text/50 p-3 text-center">
+            <p className="text-label text-ink-faint p-s3 text-center">
               Empty directory
             </p>
           )}
@@ -174,21 +174,21 @@ export function FileBrowser({
                   key={entry.path}
                   onClick={(e) => toggleSelect(entry.path, e)}
                   onDoubleClick={() => handleDoubleClick(entry)}
-                  className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer text-xs ${
+                  className={`flex items-center gap-s2 px-s2 py-s1 rounded cursor-pointer text-label ${
                     isSelected
                       ? "bg-accent/20 text-accent"
-                      : "hover:bg-white/5 text-theme-text/80"
+                      : "hover:bg-surface-2 text-ink-muted"
                   }`}
                 >
                   <Icon
                     size={14}
                     className={
-                      entry.type === "dir" ? "text-accent/70" : "text-theme-text/40"
+                      entry.type === "dir" ? "text-accent/70" : "text-ink-faint"
                     }
                   />
                   <span className="flex-1 truncate">{entry.name}</span>
                   {entry.type !== "dir" && (
-                    <span className="text-theme-text/30 whitespace-nowrap">
+                    <span className="text-ink-faint whitespace-nowrap">
                       {TYPE_LABELS[entry.type] ?? ""}{" "}
                       {formatSize(entry.size)}
                     </span>
@@ -199,25 +199,25 @@ export function FileBrowser({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-3 py-2 border-t border-theme-border">
-          <span className="text-xs text-theme-text/40">
+        <div className="flex items-center justify-between px-s3 py-s2 border-t border-edge">
+          <span className="text-label text-ink-faint">
             {selected.size > 0
               ? `${selected.size} selected`
               : multiSelect
                 ? "Click to select, Ctrl+click for multiple"
                 : "Click to select"}
           </span>
-          <div className="flex gap-1">
+          <div className="flex gap-s1">
             <button
               onClick={onClose}
-              className="btn-sm bg-panel border border-theme-border text-theme-text/70"
+              className="btn-sm bg-surface-1 border border-edge text-ink-muted"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirm}
               disabled={selected.size === 0}
-              className="btn-sm bg-accent text-accent-contrast font-semibold disabled:opacity-50"
+              className="btn-sm bg-accent text-accent-ink font-semibold disabled:opacity-50"
             >
               Select
             </button>

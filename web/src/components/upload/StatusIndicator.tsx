@@ -5,12 +5,12 @@ export function StatusIndicator() {
   const isLoaded = fovCount > 0;
 
   return (
-    <div className={`text-xs px-2 py-1.5 rounded border ${
+    <div className={`text-label px-s2 py-s1 rounded border ${
       isLoaded
         ? "border-accent/30 text-accent bg-accent/5"
         : loading
-          ? "border-yellow-500/30 text-yellow-400 bg-yellow-500/5 animate-status-pulse"
-          : "border-theme-border text-[rgb(var(--color-text-secondary))]"
+          ? "border-warn/30 text-warn bg-warn/5 animate-status-pulse"
+          : "border-edge text-ink-muted"
     }`}>
       {status}
     </div>
