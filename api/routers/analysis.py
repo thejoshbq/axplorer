@@ -18,7 +18,7 @@ router = APIRouter(prefix="/api", tags=["analysis"])
 
 
 class ComputeRequest(BaseModel):
-    event_label: str
+    event_labels: list[str]
     view_level: str = "Population"
     pre_event_s: float = 5.0
     post_event_s: float = 10.0
@@ -44,6 +44,7 @@ class PlotData(BaseModel):
     title: str
     time: list[float]
     mean: list[float]
+    median: list[float]
     sem: list[float]
     heatmap: HeatmapData | None = None
 
@@ -52,7 +53,8 @@ class ComputeResponse(BaseModel):
     plots: list[PlotData]
     y_range: list[float]
     z_range: list[float]
-    event_label: str
+    event_labels: list[str]
+    dfof_skipped_reason: str | None = None
 
 
 def _build_heatmap(
@@ -81,65 +83,52 @@ def compute(req: ComputeRequest) -> ComputeResponse:
     """Compute PETH plots based on the analysis configuration."""
     store = get_store()
 
-    if not store.all_wrappers or not req.event_label:
+    if not store.all_wrappers or not req.event_labels:
         return ComputeResponse(
-            plots=[], y_range=[0, 1], z_range=[0, 1], event_label=req.event_label,
+            plots=[], y_range=[0, 1], z_range=[0, 1], event_labels=req.event_labels,
+        )
+
+    # Guard against double-normalizing a source that's already dff -- the
+    # frontend should default enable_dfof off for a "dff" load, but don't
+    # trust it blindly.
+    enable_dfof = req.enable_dfof
+    dfof_skipped_reason: str | None = None
+    if store.h5_kind == "dff" and enable_dfof:
+        enable_dfof = False
+        dfof_skipped_reason = (
+            "DF/F step skipped: loaded signal kind is already ΔF/F-normalized."
         )
 
     # Build pipeline from the first wrapper.
     ref_wrapper = store.all_wrappers[0]
     pipeline = ref_wrapper.build_pipeline(
         dfof_percentile=req.dfof_percentile,
-        enable_dfof=req.enable_dfof,
+        enable_dfof=enable_dfof,
         enable_zscore=req.enable_zscore,
         enable_smooth=req.enable_smooth,
         smoothing_sigma=req.smoothing_sigma,
     )
 
-    # Resolve event code from label.
-    event_code = ref_wrapper.get_event_code_for_label(req.event_label)
+    multi_label = len(req.event_labels) > 1
 
-    # Gather plot data by view level.
+    # Gather plot data by view level, one pass per selected event label.
     plots: list[PlotData] = []
     heatmap_matrices: list[np.ndarray] = []
 
-    if req.view_level == "Population":
-        for pop_name, samples in store.hierarchy.items():
-            wrappers = []
-            for ws in samples.values():
-                wrappers.extend(ws)
-            if not wrappers:
-                continue
-            try:
-                result = compute_population_peth(
-                    sessions=wrappers,
-                    event_id=event_code,
-                    pre_event_s=req.pre_event_s,
-                    post_event_s=req.post_event_s,
-                    pipeline=pipeline,
-                    buffer_ms=req.buffer_ms,
-                    min_trials=req.min_trials,
-                )
-                heatmap = None
-                if req.enable_heatmap:
-                    heatmap = _build_heatmap(
-                        result.pooled_mean, result.time_axis,
-                        result.post_event_s, req.sort_method,
-                    )
-                    heatmap_matrices.append(result.pooled_mean)
-                plots.append(PlotData(
-                    title=f"{pop_name} (n={result.total_neurons})",
-                    time=result.time_axis.tolist(),
-                    mean=result.grand_mean.tolist(),
-                    sem=result.grand_sem.tolist(),
-                    heatmap=heatmap,
-                ))
-            except Exception as exc:
-                logger.warning("Population %s failed: %s", pop_name, exc)
+    for event_label in req.event_labels:
+        try:
+            event_code = ref_wrapper.get_event_code_for_label(event_label)
+        except KeyError:
+            logger.warning("Unknown event label %s", event_label)
+            continue
 
-    elif req.view_level == "Sample":
-        for pop_name, samples in store.hierarchy.items():
-            for sample_name, wrappers in samples.items():
+        suffix = f" — {event_label}" if multi_label else ""
+
+        if req.view_level == "Population":
+            for pop_name, samples in store.hierarchy.items():
+                wrappers = []
+                for ws in samples.values():
+                    wrappers.extend(ws)
                 if not wrappers:
                     continue
                 try:
@@ -159,24 +148,25 @@ def compute(req: ComputeRequest) -> ComputeResponse:
                             result.post_event_s, req.sort_method,
                         )
                         heatmap_matrices.append(result.pooled_mean)
-                    label = f"{pop_name}/{sample_name}" if pop_name != "default" else sample_name
                     plots.append(PlotData(
-                        title=f"{label} (n={result.total_neurons})",
+                        title=f"{pop_name} (n={result.total_neurons}){suffix}",
                         time=result.time_axis.tolist(),
                         mean=result.grand_mean.tolist(),
+                        median=result.grand_median.tolist(),
                         sem=result.grand_sem.tolist(),
                         heatmap=heatmap,
                     ))
                 except Exception as exc:
-                    logger.warning("Sample %s/%s failed: %s", pop_name, sample_name, exc)
+                    logger.warning("Population %s failed: %s", pop_name, exc)
 
-    elif req.view_level == "FOV":
-        for pop_name, samples in store.hierarchy.items():
-            for sample_name, wrappers in samples.items():
-                for wrapper in wrappers:
+        elif req.view_level == "Sample":
+            for pop_name, samples in store.hierarchy.items():
+                for sample_name, wrappers in samples.items():
+                    if not wrappers:
+                        continue
                     try:
-                        peth = compute_peth(
-                            session=wrapper,
+                        result = compute_population_peth(
+                            sessions=wrappers,
                             event_id=event_code,
                             pre_event_s=req.pre_event_s,
                             post_event_s=req.post_event_s,
@@ -184,32 +174,75 @@ def compute(req: ComputeRequest) -> ComputeResponse:
                             buffer_ms=req.buffer_ms,
                             min_trials=req.min_trials,
                         )
-                        mean_trace = np.nanmean(peth.mean, axis=0)
-                        sem_trace = np.nanmean(peth.sem, axis=0)
-                        n_neurons = peth.mean.shape[0]
                         heatmap = None
                         if req.enable_heatmap:
                             heatmap = _build_heatmap(
-                                peth.mean, peth.time_axis,
-                                peth.post_event_s, req.sort_method,
+                                result.pooled_mean, result.time_axis,
+                                result.post_event_s, req.sort_method,
                             )
-                            heatmap_matrices.append(peth.mean)
+                            heatmap_matrices.append(result.pooled_mean)
+                        label = f"{pop_name}/{sample_name}" if pop_name != "default" else sample_name
                         plots.append(PlotData(
-                            title=f"{wrapper.name} (n={n_neurons})",
-                            time=peth.time_axis.tolist(),
-                            mean=mean_trace.tolist(),
-                            sem=sem_trace.tolist(),
+                            title=f"{label} (n={result.total_neurons}){suffix}",
+                            time=result.time_axis.tolist(),
+                            mean=result.grand_mean.tolist(),
+                            median=result.grand_median.tolist(),
+                            sem=result.grand_sem.tolist(),
                             heatmap=heatmap,
                         ))
                     except Exception as exc:
-                        logger.warning("FOV %s failed: %s", wrapper.name, exc)
+                        logger.warning("Sample %s/%s failed: %s", pop_name, sample_name, exc)
 
-    # Compute shared y-range.
+        elif req.view_level == "FOV":
+            for pop_name, samples in store.hierarchy.items():
+                for sample_name, wrappers in samples.items():
+                    for wrapper in wrappers:
+                        try:
+                            peth = compute_peth(
+                                session=wrapper,
+                                event_id=event_code,
+                                pre_event_s=req.pre_event_s,
+                                post_event_s=req.post_event_s,
+                                pipeline=pipeline,
+                                buffer_ms=req.buffer_ms,
+                                min_trials=req.min_trials,
+                            )
+                            mean_trace = np.nanmean(peth.mean, axis=0)
+                            median_trace = np.nanmedian(peth.mean, axis=0)
+                            sem_trace = np.nanmean(peth.sem, axis=0)
+                            n_neurons = peth.mean.shape[0]
+                            heatmap = None
+                            if req.enable_heatmap:
+                                heatmap = _build_heatmap(
+                                    peth.mean, peth.time_axis,
+                                    peth.post_event_s, req.sort_method,
+                                )
+                                heatmap_matrices.append(peth.mean)
+                            plots.append(PlotData(
+                                title=f"{wrapper.name} (n={n_neurons}){suffix}",
+                                time=peth.time_axis.tolist(),
+                                mean=mean_trace.tolist(),
+                                median=median_trace.tolist(),
+                                sem=sem_trace.tolist(),
+                                heatmap=heatmap,
+                            ))
+                        except Exception as exc:
+                            logger.warning("FOV %s failed: %s", wrapper.name, exc)
+
+    # Compute shared y-range (accounting for the median trace too, so it's
+    # never clipped even when it diverges from mean +/- SEM).
     if plots:
         all_means = [np.array(p.mean) for p in plots]
+        all_medians = [np.array(p.median) for p in plots]
         all_sems = [np.array(p.sem) for p in plots]
-        global_ymin = float(min((m - s).min() for m, s in zip(all_means, all_sems)))
-        global_ymax = float(max((m + s).max() for m, s in zip(all_means, all_sems)))
+        global_ymin = float(min(
+            min((m - s).min(), med.min())
+            for m, s, med in zip(all_means, all_sems, all_medians)
+        ))
+        global_ymax = float(max(
+            max((m + s).max(), med.max())
+            for m, s, med in zip(all_means, all_sems, all_medians)
+        ))
         margin = (global_ymax - global_ymin) * 0.05
         y_range = [global_ymin - margin, global_ymax + margin]
     else:
@@ -219,11 +252,21 @@ def compute(req: ComputeRequest) -> ComputeResponse:
     if heatmap_matrices:
         global_zmin = float(min(np.nanmin(m) for m in heatmap_matrices))
         global_zmax = float(max(np.nanmax(m) for m in heatmap_matrices))
-        z_margin = (global_zmax - global_zmin) * 0.05
-        z_range = [global_zmin - z_margin, global_zmax + z_margin]
+        if req.enable_zscore:
+            # Symmetric range so 0 maps to the center of the diverging palette.
+            abs_max = max(abs(global_zmin), abs(global_zmax), 1e-6)
+            margin = abs_max * 0.05
+            z_range = [-(abs_max + margin), abs_max + margin]
+        else:
+            z_margin = (global_zmax - global_zmin) * 0.05
+            z_range = [global_zmin - z_margin, global_zmax + z_margin]
     else:
         z_range = [0.0, 1.0]
 
     return ComputeResponse(
-        plots=plots, y_range=y_range, z_range=z_range, event_label=req.event_label,
+        plots=plots,
+        y_range=y_range,
+        z_range=z_range,
+        event_labels=req.event_labels,
+        dfof_skipped_reason=dfof_skipped_reason,
     )

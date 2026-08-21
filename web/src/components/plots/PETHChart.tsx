@@ -21,12 +21,13 @@ interface Props {
   title: string;
   time: number[];
   mean: number[];
+  median: number[];
   sem: number[];
   yRange: [number, number];
   colorIndex: number;
 }
 
-export function PETHChart({ title, time, mean, sem, yRange, colorIndex }: Props) {
+export function PETHChart({ title, time, mean, median, sem, yRange, colorIndex }: Props) {
   const mode = useThemeStore((s) => s.mode);
   const isDark = mode === "dark";
   const color = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
@@ -57,8 +58,19 @@ export function PETHChart({ title, time, mean, sem, yRange, colorIndex }: Props)
           y: mean,
           mode: "lines" as const,
           line: { color, width: 1.5 },
-          hovertemplate: "Time: %{x:.3f}s<br>Value: %{y:.4f}<extra></extra>",
-          showlegend: false,
+          name: "Mean",
+          hovertemplate: "Time: %{x:.3f}s<br>Mean: %{y:.4f}<extra></extra>",
+          showlegend: true,
+          type: "scatter" as const,
+        },
+        {
+          x: time,
+          y: median,
+          mode: "lines" as const,
+          line: { color, width: 1.5, dash: "dot" },
+          name: "Median",
+          hovertemplate: "Time: %{x:.3f}s<br>Median: %{y:.4f}<extra></extra>",
+          showlegend: true,
           type: "scatter" as const,
         },
       ]}
@@ -74,11 +86,16 @@ export function PETHChart({ title, time, mean, sem, yRange, colorIndex }: Props)
           zerolinecolor: gridColor,
         },
         yaxis: {
-          title: { text: "Mean Activity" },
+          title: { text: "Population Activity" },
           range: yRange,
           gridcolor: gridColor,
           linecolor: `rgba(0,212,216,0.3)`,
           zerolinecolor: gridColor,
+        },
+        legend: {
+          orientation: "h",
+          x: 0, y: 1.12,
+          font: { size: 9 },
         },
         shapes: [
           {

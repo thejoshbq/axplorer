@@ -24,9 +24,11 @@ class DataStore:
         self.data_paths: list[str] = []
         self.source: str = "filesystem"
         self.db_path: str | None = None
+        self.h5_kind: str | None = None  # trace kind for .h5 signal sources ("f"/"dff"/"raw"/"neuropil")
         self.hierarchy: dict[str, dict[str, list[SessionWrapper]]] = {}
         self.all_wrappers: list[SessionWrapper] = []
         self.available_events: list[str] = []
+        self.population_names: list[str] = []
         self.status: str = "No data loaded."
         self.loading: bool = False
         self._db_conn = None  # open DuckDB connection shared by DBSample instances
@@ -76,6 +78,10 @@ class DataStore:
                             wrappers.append(w)
                     if wrappers:
                         hierarchy[_DEFAULT_POP] = {_DEFAULT_SAMPLE: wrappers}
+                elif level == "Files":
+                    wrappers = self._load_files(self.data_paths)
+                    if wrappers:
+                        hierarchy[_DEFAULT_POP] = {_DEFAULT_SAMPLE: wrappers}
         except Exception as exc:
             self.status = f"Error: {exc}"
             self.loading = False
@@ -99,7 +105,9 @@ class DataStore:
         self.hierarchy = hierarchy
         self.all_wrappers = flat
         self.available_events = common
-        self.status = f"Loaded {len(flat)} FOV(s) across {len(hierarchy)} population(s)."
+        self.population_names = sorted(hierarchy.keys())
+        pop_list = ", ".join(sorted(hierarchy.keys()))
+        self.status = f"Loaded {len(flat)} FOV(s) across {len(hierarchy)} population(s): {pop_list}"
         self.loading = False
 
     # ------------------------------------------------------------------
@@ -152,33 +160,74 @@ class DataStore:
         """Load a single FOV directory into a SessionWrapper."""
         fov_dir = Path(fov_path).expanduser().resolve()
         npy_files = sorted(fov_dir.glob("*extractedsignals_raw.npy"))
-        mat_files = sorted(
-            f for f in fov_dir.glob("*.mat")
-            if "extractedsignals" not in f.name.lower()
-        )
-        xlsx_files = sorted(fov_dir.glob("*.xlsx"))
-        event_files = mat_files + xlsx_files
+        if not npy_files:
+            npy_files = sorted(fov_dir.glob("*.h5"))
+        # Event-file priority: REACHER CSV → legacy MAT → legacy XLSX.
+        event_files = sorted(fov_dir.glob("behavior_events*.csv"))
+        if not event_files:
+            mat_files = sorted(
+                f for f in fov_dir.glob("*.mat")
+                if "extractedsignals" not in f.name.lower()
+            )
+            xlsx_files = sorted(fov_dir.glob("*.xlsx"))
+            event_files = mat_files + xlsx_files
         if not npy_files or not event_files:
-            logger.warning("Skipping %s: missing .npy or event files", fov_dir)
+            logger.warning("Skipping %s: missing .npy/.h5 or event files", fov_dir)
             return None
+        ft_file = fov_dir / "frame_timestamps.csv"
+        frame_timestamps_path = str(ft_file.resolve()) if ft_file.exists() else None
         try:
             sample, _ = load_session_files(
                 signal_path=[str(p) for p in npy_files] if len(npy_files) > 1 else str(npy_files[0]),
                 event_path=[str(p) for p in event_files] if len(event_files) > 1 else str(event_files[0]),
                 session_name=fov_dir.name,
+                frame_timestamps_path=frame_timestamps_path,
+                h5_kind=self.h5_kind,
             )
             return SessionWrapper(sample)
         except Exception as exc:
             logger.warning("Failed to load FOV %s: %s", fov_dir, exc)
             return None
 
+    def _load_files(self, paths: list[str]) -> list[SessionWrapper]:
+        """Load individual signal + event files as a single FOV."""
+        signal_paths = [p for p in paths if p.lower().endswith((".npy", ".h5", ".hdf5"))]
+        event_paths = [
+            p for p in paths
+            if p.lower().endswith((".csv", ".mat", ".xlsx"))
+            and Path(p).name.lower() != "frame_timestamps.csv"
+        ]
+        if not signal_paths or not event_paths:
+            logger.warning("File pair requires at least one .npy/.h5 and one .csv/.mat/.xlsx event file")
+            return []
+        ft_paths = [p for p in paths if Path(p).name.lower() == "frame_timestamps.csv"]
+        frame_timestamps_path = ft_paths[0] if ft_paths else None
+        try:
+            sample, _ = load_session_files(
+                signal_path=signal_paths if len(signal_paths) > 1 else signal_paths[0],
+                event_path=event_paths if len(event_paths) > 1 else event_paths[0],
+                session_name=Path(signal_paths[0]).stem,
+                frame_timestamps_path=frame_timestamps_path,
+                h5_kind=self.h5_kind,
+            )
+            return [SessionWrapper(sample)]
+        except Exception as exc:
+            logger.warning("Failed to load file pair: %s", exc)
+            return []
+
     def _meta_to_wrapper(self, meta) -> SessionWrapper | None:
         """Convert a SessionMeta to a SessionWrapper."""
         try:
             sample, _ = load_session_files(
                 signal_path=list(meta.npy_paths),
-                event_path=list(meta.mat_paths),
+                event_path=list(meta.event_paths),
                 session_name=meta.npy_paths[0].stem,
+                frame_timestamps_path=(
+                    str(meta.frame_timestamps_path)
+                    if meta.frame_timestamps_path is not None
+                    else None
+                ),
+                h5_kind=self.h5_kind,
             )
             return SessionWrapper(sample)
         except Exception as exc:

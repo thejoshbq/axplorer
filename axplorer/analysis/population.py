@@ -2,7 +2,7 @@
 
 Pools neurons across multiple sessions to produce a population-level PETH
 result with both neuron-pooled heatmap data and session-averaged grand
-mean traces.
+mean/median traces.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ def compute_population_peth(
 
     For each session, computes a single-session PETH via ``compute_peth()``,
     then stacks all session mean traces into a pooled ``(total_neurons, time)``
-    matrix.  The grand mean and SEM are computed across *sessions* (not
-    individual neurons), treating each session as one observation.
+    matrix.  The grand mean, median, and SEM are computed across *sessions*
+    (not individual neurons), treating each session as one observation.
 
     All sessions must share the same ``effective_fps`` (tolerance +/- 0.01 Hz)
     so that time axes align.
@@ -106,6 +106,7 @@ def compute_population_peth(
 
     n_sessions = len(sessions)
     grand_mean = np.nanmean(session_means, axis=0).astype(np.float32)
+    grand_median = np.nanmedian(session_means, axis=0).astype(np.float32)
 
     if n_sessions > 1:
         grand_sem = (
@@ -121,6 +122,7 @@ def compute_population_peth(
         pooled_mean=pooled_mean,
         session_means=session_means,
         grand_mean=grand_mean,
+        grand_median=grand_median,
         grand_sem=grand_sem,
         time_axis=time_axis,
         event_label=event_label,

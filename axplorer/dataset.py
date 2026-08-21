@@ -95,7 +95,7 @@ class Dataset:
 
         sample, metadata = load_session_files(
             signal_path=list(session_meta.npy_paths),
-            event_path=list(session_meta.mat_paths),
+            event_path=list(session_meta.event_paths),
             fps=fps,
             frame_averaging=frame_averaging,
             task_type=task_type,
@@ -136,8 +136,8 @@ class Dataset:
         """Return a DataFrame summary of all sessions.
 
         Columns: ``phase``, ``animal_id``, ``sex``, ``fov``,
-        ``is_tracked``, ``npy_paths``, ``mat_paths``, ``npy_size_mb``,
-        ``mat_size_mb``.
+        ``is_tracked``, ``npy_paths``, ``event_paths``, ``npy_size_mb``,
+        ``event_size_mb``.
 
         Returns:
             A :class:`pandas.DataFrame` with one row per session.
@@ -147,8 +147,8 @@ class Dataset:
             npy_size = sum(
                 p.stat().st_size / (1024 * 1024) for p in s.npy_paths if p.exists()
             )
-            mat_size = sum(
-                p.stat().st_size / (1024 * 1024) for p in s.mat_paths if p.exists()
+            event_size = sum(
+                p.stat().st_size / (1024 * 1024) for p in s.event_paths if p.exists()
             )
             rows.append({
                 "phase": s.phase,
@@ -157,9 +157,9 @@ class Dataset:
                 "fov": s.fov,
                 "is_tracked": s.is_tracked,
                 "npy_paths": [str(p) for p in s.npy_paths],
-                "mat_paths": [str(p) for p in s.mat_paths],
+                "event_paths": [str(p) for p in s.event_paths],
                 "npy_size_mb": round(npy_size, 2),
-                "mat_size_mb": round(mat_size, 2),
+                "event_size_mb": round(event_size, 2),
             })
         return pd.DataFrame(rows)
 
@@ -234,7 +234,7 @@ def _worker_load_and_apply(
 
     sample, metadata = load_session_files(
         signal_path=list(meta.npy_paths),
-        event_path=list(meta.mat_paths),
+        event_path=list(meta.event_paths),
         fps=fps,
         frame_averaging=frame_averaging,
         task_type=task_type,

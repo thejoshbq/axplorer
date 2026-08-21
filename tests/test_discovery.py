@@ -61,7 +61,7 @@ class TestDiscoverSessions:
         assert m0.fov == "FOV1_tracked"
         assert m0.is_tracked is True
         assert m0.npy_paths[0].name == "signals_extractedsignals_raw.npy"
-        assert m0.mat_paths[0].name == "events.mat"
+        assert m0.event_paths[0].name == "events.mat"
 
         m1 = result[1]
         assert m1.animal_id == "PrL-NAc-G6-2M"
@@ -93,7 +93,15 @@ class TestDiscoverSessions:
             result = discover_sessions(tmp_path)
 
         assert len(result) == 0
-        assert "no .mat event file" in caplog.text
+        assert "no behavior event file" in caplog.text
+
+    def test_h5_signal_fallback(self, mock_h5_data_hierarchy: Path) -> None:
+        """A FOV with a roigbiv .h5 (no .npy) is still discovered."""
+        result = discover_sessions(mock_h5_data_hierarchy)
+
+        assert len(result) == 1
+        assert result[0].npy_paths[0].suffix == ".h5"
+        assert result[0].event_paths[0].name == "behavior_events.csv"
 
     def test_multiple_npy(self, tmp_path: Path) -> None:
         """FOV with two .npy files collects both into npy_paths."""
@@ -147,7 +155,34 @@ class TestDiscoverSessions:
 
         result = discover_sessions(tmp_path)
         assert len(result) == 1
-        assert result[0].mat_paths[0].name == "events.mat"
+        assert result[0].event_paths[0].name == "events.mat"
+
+    def test_csv_event_preferred(self, tmp_path: Path) -> None:
+        """A REACHER behavior_events.csv is preferred over a legacy .mat sibling."""
+        fov = tmp_path / "phase" / "animal-1F" / "FOV1"
+        _make_fov(fov)
+        (fov / "behavior_events.csv").write_text(
+            "device,event,start_timestamp,end_timestamp\nPUMP,INFUSION,0,1\n"
+        )
+
+        result = discover_sessions(tmp_path)
+        assert len(result) == 1
+        assert result[0].event_paths[0].name == "behavior_events.csv"
+        assert result[0].frame_timestamps_path is None
+
+    def test_frame_timestamps_sidecar_discovered(self, tmp_path: Path) -> None:
+        """frame_timestamps.csv next to a CSV event file lands on SessionMeta."""
+        fov = tmp_path / "phase" / "animal-1F" / "FOV1"
+        _make_fov(fov, create_mat=False)
+        (fov / "behavior_events.csv").write_text(
+            "device,event,start_timestamp,end_timestamp\nPUMP,INFUSION,0,1\n"
+        )
+        (fov / "frame_timestamps.csv").write_text("frame_index,timestamp_ms\n0,0\n")
+
+        result = discover_sessions(tmp_path)
+        assert len(result) == 1
+        assert result[0].frame_timestamps_path is not None
+        assert result[0].frame_timestamps_path.name == "frame_timestamps.csv"
 
 
 # ──────────────────────────────────────────────────────────────────────────

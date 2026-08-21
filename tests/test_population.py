@@ -159,6 +159,17 @@ class TestComputePopulationPeth:
         ])
         np.testing.assert_allclose(result.grand_mean, 2.0, atol=1e-5)
 
+    def test_grand_median_differs_from_mean_when_skewed(self):
+        """Grand median should track the session distribution, not just the mean --
+        confirms it's a real median, not a relabeled copy of grand_mean."""
+        session_means = [1.0, 1.0, 1.0, 1.0, 21.0]
+        result = self._run([
+            (f"sess_{i}", 5, 10, v) for i, v in enumerate(session_means)
+        ])
+        np.testing.assert_allclose(result.grand_mean, np.mean(session_means), atol=1e-5)
+        np.testing.assert_allclose(result.grand_median, np.median(session_means), atol=1e-5)
+        assert not np.allclose(result.grand_mean, result.grand_median)
+
     def test_grand_sem_uses_n_sessions(self):
         """SEM denominator should be sqrt(n_sessions), not sqrt(total_neurons)."""
         # Session A mean = 1.0, Session B mean = 3.0
@@ -226,6 +237,7 @@ class TestComputePopulationPeth:
         assert result.n_sessions == 1
         assert result.total_neurons == 5
         np.testing.assert_allclose(result.grand_mean, 2.5, atol=1e-5)
+        np.testing.assert_allclose(result.grand_median, 2.5, atol=1e-5)
         np.testing.assert_allclose(result.grand_sem, 0.0, atol=1e-5)
 
     def test_empty_sessions_raises(self):

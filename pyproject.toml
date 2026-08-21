@@ -13,12 +13,13 @@ dependencies = [
     "scipy>=1.10",
     "openpyxl>=3.1",
     "h5py>=3.9",
+    "tables>=3.9.0",
     "fastapi>=0.104",
     "python-multipart>=0.0.9",
     "uvicorn[standard]>=0.24",
     "plotly>=5.18",
     "kaleido>=0.2",
-    "pynapse @ file:///home/thejoshbq/Otis-Lab/Projects/REACHER-Suite/pynapse",
+    "pynapse @ file:///home/thejoshbq/code/otis-lab//pynapse",
 ]
 
 [project.optional-dependencies]

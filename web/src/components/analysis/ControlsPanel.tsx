@@ -1,41 +1,47 @@
+import { useEffect } from "react";
 import { Loader2, Play } from "lucide-react";
 import { useDataStore } from "../../store/useDataStore";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import { usePlotStore } from "../../store/usePlotStore";
 
-const VIEW_LEVELS = ["Population", "Sample", "FOV"];
-
 export function ControlsPanel() {
-  const { availableEvents } = useDataStore();
+  const { availableEvents, signalKind } = useDataStore();
   const a = useAnalysisStore();
+
+  // Loaded signal is already DeltaF/F -- default the DF/F step off so it
+  // isn't applied twice. Still user-overridable (the backend guards against
+  // it anyway).
+  useEffect(() => {
+    if (signalKind === "dff") {
+      a.setEnableDfof(false);
+    }
+  }, [signalKind]);
+
   const { compute, computing } = usePlotStore();
 
   return (
     <div className="space-y-3">
-      {/* Event selector */}
+      {/* Event selector -- multi-select: one population trace per checked event */}
       <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">Event</label>
-        <select
-          value={a.eventLabel}
-          onChange={(e) => a.setEventLabel(e.target.value)}
-          className="input-base w-full"
-          disabled={availableEvents.length === 0}
-        >
-          <option value="">Select event...</option>
+        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">
+          Events {a.eventLabels.length > 0 && `(${a.eventLabels.length} selected)`}
+        </label>
+        <div className="max-h-32 overflow-y-auto space-y-1 border border-theme-border rounded px-2 py-1">
+          {availableEvents.length === 0 && (
+            <span className="text-xs text-theme-text/50">No events available.</span>
+          )}
           {availableEvents.map((ev) => (
-            <option key={ev} value={ev}>{ev}</option>
+            <label key={ev} className="flex items-center gap-2 text-xs text-theme-text/80 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={a.eventLabels.includes(ev)}
+                onChange={() => a.toggleEventLabel(ev)}
+                className="accent-accent"
+              />
+              {ev}
+            </label>
           ))}
-        </select>
-      </div>
-
-      {/* View level */}
-      <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">View Level</label>
-        <select value={a.viewLevel} onChange={(e) => a.setViewLevel(e.target.value)} className="input-base w-full">
-          {VIEW_LEVELS.map((l) => (
-            <option key={l} value={l}>{l}</option>
-          ))}
-        </select>
+        </div>
       </div>
 
       <div className="neural-divider" />
@@ -70,6 +76,11 @@ export function ControlsPanel() {
           className="accent-accent" />
         DF/F
       </label>
+      {signalKind === "dff" && (
+        <p className="text-xs text-theme-text/50 -mt-1">
+          Loaded signal is already ΔF/F -- defaulted off to avoid double-normalizing.
+        </p>
+      )}
       {a.enableDfof && (
         <div>
           <label className="flex items-center justify-between text-xs text-theme-text/70 mb-1">
@@ -146,7 +157,7 @@ export function ControlsPanel() {
       {/* Compute button */}
       <button
         onClick={compute}
-        disabled={computing || !a.eventLabel}
+        disabled={computing || a.eventLabels.length === 0}
         className="btn-sm w-full bg-accent text-accent-contrast font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
       >
         {computing ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}

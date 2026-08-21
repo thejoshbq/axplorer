@@ -3,10 +3,11 @@ interface LoadResponse {
   available_events: string[];
   fov_count: number;
   population_count: number;
+  population_names: string[];
 }
 
 interface ComputeRequest {
-  event_label: string;
+  event_labels: string[];
   view_level: string;
   pre_event_s: number;
   post_event_s: number;
@@ -32,6 +33,7 @@ interface PlotData {
   title: string;
   time: number[];
   mean: number[];
+  median: number[];
   sem: number[];
   heatmap?: HeatmapData;
 }
@@ -40,7 +42,8 @@ interface ComputeResponse {
   plots: PlotData[];
   y_range: number[];
   z_range: number[];
-  event_label: string;
+  event_labels: string[];
+  dfof_skipped_reason: string | null;
 }
 
 interface StatusResponse {
@@ -49,6 +52,26 @@ interface StatusResponse {
   available_events: string[];
   fov_count: number;
   population_count: number;
+  population_names: string[];
+}
+
+interface BrowseEntry {
+  name: string;
+  path: string;
+  type: string;
+  size: number | null;
+}
+
+export interface BrowseResponse {
+  current: string;
+  parent: string | null;
+  entries: BrowseEntry[];
+}
+
+interface DetectResponse {
+  source: string;
+  data_level: string;
+  available_h5_kinds: string[];
 }
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -65,19 +88,30 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   loadData: (
-    source: string,
-    dataLevel: string,
     paths: string[],
-    dbPath?: string,
+    source?: string | null,
+    dataLevel?: string | null,
+    dbPath?: string | null,
+    h5Kind?: string | null,
   ) =>
     request<LoadResponse>("/api/load", {
       method: "POST",
       body: JSON.stringify({
-        source,
-        data_level: dataLevel,
+        source: source ?? null,
+        data_level: dataLevel ?? null,
         paths,
         db_path: dbPath ?? null,
+        h5_kind: h5Kind ?? null,
       }),
+    }),
+
+  browse: (path: string) =>
+    request<BrowseResponse>(`/api/browse?path=${encodeURIComponent(path)}`),
+
+  detect: (paths: string[]) =>
+    request<DetectResponse>("/api/detect", {
+      method: "POST",
+      body: JSON.stringify({ paths }),
     }),
 
   getStatus: () => request<StatusResponse>("/api/status"),
@@ -95,11 +129,12 @@ export const api = {
     eventLabel: string,
     fmt: string,
     dark: boolean,
+    enableZscore: boolean,
   ): Promise<Blob> => {
     const res = await fetch("/api/export/figure", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plots, y_range: yRange, z_range: zRange, event_label: eventLabel, fmt, dark }),
+      body: JSON.stringify({ plots, y_range: yRange, z_range: zRange, event_label: eventLabel, fmt, dark, enable_zscore: enableZscore }),
     });
     if (!res.ok) throw new Error(`Export failed: ${res.status}`);
     return res.blob();

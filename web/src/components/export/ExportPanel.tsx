@@ -21,15 +21,19 @@ export function ExportPanel() {
 
   const mode = useThemeStore((s) => s.mode);
   const analysis = useAnalysisStore();
-  const { plots, yRange, zRange, eventLabel } = usePlotStore();
+  const { plots, yRange, zRange, eventLabels } = usePlotStore();
 
   const hasPlotsToExport = plots.length > 0;
+  // The figure/data export endpoints caption on a single event label; when
+  // several are selected for comparison, export the first one.
+  const primaryEventLabel = analysis.eventLabels[0] ?? "";
 
   const handleExportFigure = async () => {
     if (!hasPlotsToExport) return;
     setExporting(true);
     try {
-      const blob = await api.exportFigure(plots, yRange, zRange, eventLabel, figureFmt, mode === "dark");
+      const label = eventLabels[0] ?? primaryEventLabel;
+      const blob = await api.exportFigure(plots, yRange, zRange, label, figureFmt, mode === "dark", analysis.enableZscore);
       downloadBlob(blob, `axplorer_peth.${figureFmt}`);
     } catch (err) {
       console.error("Figure export failed:", err);
@@ -42,7 +46,7 @@ export function ExportPanel() {
     setExporting(true);
     try {
       const blob = await api.exportData({
-        event_label: analysis.eventLabel,
+        event_label: primaryEventLabel,
         fmt: dataFmt,
         pre_event_s: analysis.preEventS,
         post_event_s: analysis.postEventS,
@@ -95,7 +99,7 @@ export function ExportPanel() {
           </select>
           <button
             onClick={handleExportData}
-            disabled={!analysis.eventLabel || exporting}
+            disabled={!primaryEventLabel || exporting}
             className="btn-sm bg-panel border border-theme-border text-accent disabled:opacity-50 flex items-center gap-1"
           >
             <Download size={12} />

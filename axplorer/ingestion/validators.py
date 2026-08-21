@@ -1,9 +1,9 @@
 """Input validation for signal and event files.
 
-Provides pre-flight checks for neural signal (.npy) and behavioral event
-(.xlsx / .mat) files before they are handed to the Pynapse Sample constructor.
-Each validator returns a ``ValidationResult`` containing accumulated errors
-and warnings so callers can decide how to proceed.
+Provides pre-flight checks for neural signal (.npy / .h5) and behavioral
+event (.xlsx / .mat / .csv) files before they are handed to the Pynapse
+Sample constructor. Each validator returns a ``ValidationResult`` containing
+accumulated errors and warnings so callers can decide how to proceed.
 """
 
 from __future__ import annotations
@@ -13,6 +13,10 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
+
+# Trace kinds a roigbiv .h5 export may store -- kept in sync with
+# pynapse.core.io.microscopy.H5_KINDS.
+_H5_KINDS = ("f", "dff", "raw", "neuropil")
 
 
 # ---------------------------------------------------------------------------
@@ -39,9 +43,10 @@ class ValidationResult:
 # ---------------------------------------------------------------------------
 
 def validate_signal_file(path: str | Path) -> ValidationResult:
-    """Validate a ``.npy`` neural signal file.
+    """Validate a neural signal file (``.npy`` or roigbiv ``.h5``).
 
-    Checks performed (in order):
+    ``.h5`` files are dispatched to :func:`validate_h5_signal_file`. For
+    ``.npy`` files, checks performed (in order):
         1. File exists on disk.
         2. Extension is ``.npy``.
         3. File is loadable by ``numpy.load``.
@@ -55,9 +60,13 @@ def validate_signal_file(path: str | Path) -> ValidationResult:
     Returns:
         A ``ValidationResult`` with accumulated errors and warnings.
     """
+    path = Path(path)
+
+    if path.suffix.lower() in (".h5", ".hdf5"):
+        return validate_h5_signal_file(path)
+
     errors: List[str] = []
     warnings: List[str] = []
-    path = Path(path)
 
     # 1. Existence
     if not path.exists():
@@ -112,19 +121,105 @@ def validate_signal_file(path: str | Path) -> ValidationResult:
 
 
 # ---------------------------------------------------------------------------
-# Event file (.xlsx / .mat)
+# Signal file (roigbiv .h5)
 # ---------------------------------------------------------------------------
 
-_REQUIRED_XLSX_COLUMNS = {"device", "event", "start_timestamp", "end_timestamp"}
+def validate_h5_signal_file(path: str | Path) -> ValidationResult:
+    """Validate a roigbiv ``.h5`` trace export.
+
+    Checks performed (in order):
+        1. File exists on disk.
+        2. File opens as a ``pandas.HDFStore``.
+        3. At least one of ``/f``, ``/dff``, ``/raw``, ``/neuropil`` is present.
+        4. Each present trace key is a 2-D-shaped table.
+        5. ``/meta`` is present.
+
+    Args:
+        path: Filesystem path to the ``.h5`` file.
+
+    Returns:
+        A ``ValidationResult`` with accumulated errors and warnings.
+    """
+    import pandas as pd
+
+    errors: List[str] = []
+    warnings: List[str] = []
+    path = Path(path)
+
+    if not path.exists():
+        return ValidationResult(valid=False, errors=[f"Signal file not found: {path}"])
+
+    try:
+        with pd.HDFStore(str(path), mode="r") as store:
+            keys = {k.lstrip("/") for k in store.keys()}
+            present_kinds = [k for k in _H5_KINDS if k in keys]
+            if not present_kinds:
+                errors.append(
+                    f"No recognized trace kind found in {path}. "
+                    f"Expected at least one of {_H5_KINDS}, found keys: {sorted(keys)}"
+                )
+            else:
+                for kind in present_kinds:
+                    df = store[f"/{kind}"]
+                    if df.ndim != 2:
+                        errors.append(
+                            f"Trace '/{kind}' must be 2-D (frames x neurons), "
+                            f"got {df.ndim}-D."
+                        )
+
+            if "meta" not in keys:
+                warnings.append(
+                    "No '/meta' key found -- effective fps cannot be derived "
+                    "automatically from this file."
+                )
+    except Exception as exc:
+        return ValidationResult(valid=False, errors=[f"Failed to open .h5 file: {exc}"])
+
+    return ValidationResult(
+        valid=len(errors) == 0,
+        errors=errors,
+        warnings=warnings,
+    )
+
+
+def list_h5_kinds(path: str | Path) -> List[str]:
+    """List the trace kinds present in a roigbiv ``.h5`` export.
+
+    Args:
+        path: Filesystem path to the ``.h5`` file.
+
+    Returns:
+        Subset of ``("f", "dff", "raw", "neuropil")`` present in the file,
+        in that canonical order. Empty list if the file can't be opened or
+        contains none of them.
+    """
+    import pandas as pd
+
+    try:
+        with pd.HDFStore(str(path), mode="r") as store:
+            keys = {k.lstrip("/") for k in store.keys()}
+    except Exception:
+        return []
+    return [k for k in _H5_KINDS if k in keys]
+
+
+# ---------------------------------------------------------------------------
+# Event file (.csv / .xlsx / .mat)
+# ---------------------------------------------------------------------------
+
+_REQUIRED_EVENT_COLUMNS = {"device", "event", "start_timestamp", "end_timestamp"}
 
 
 def validate_event_file(path: str | Path) -> ValidationResult:
-    """Validate a behavioral event file (``.xlsx`` or ``.mat``).
+    """Validate a behavioral event file (``.csv``, ``.xlsx``, or ``.mat``).
+
+    For ``.csv`` files (REACHER / Labrynth export):
+        * Checks that the required columns (device, event, start_timestamp,
+          end_timestamp) are present in the header.
 
     For ``.xlsx`` files:
         * Checks that a sheet named ``"Behavior Data"`` exists.
-        * Checks that the required columns (device, event, start_timestamp,
-          end_timestamp) are present.
+        * Checks that the required columns are present.
 
     For ``.mat`` files:
         * Checks that the ``'eventlog'`` key exists in the loaded struct.
@@ -145,14 +240,16 @@ def validate_event_file(path: str | Path) -> ValidationResult:
 
     suffix = path.suffix.lower()
 
-    if suffix == ".xlsx":
+    if suffix == ".csv":
+        errors, warnings = _validate_csv_event_file(path)
+    elif suffix == ".xlsx":
         errors, warnings = _validate_xlsx_event_file(path)
     elif suffix == ".mat":
         errors, warnings = _validate_mat_event_file(path)
     else:
         errors.append(
             f"Unsupported event file extension '{suffix}'. "
-            "Expected .xlsx or .mat."
+            "Expected .csv, .xlsx, or .mat."
         )
 
     return ValidationResult(
@@ -160,6 +257,44 @@ def validate_event_file(path: str | Path) -> ValidationResult:
         errors=errors,
         warnings=warnings,
     )
+
+
+def _validate_csv_event_file(path: Path) -> tuple[List[str], List[str]]:
+    """Validate a REACHER-exported ``behavior_events.csv`` file.
+
+    Only the header row is parsed so that very large CSVs remain cheap to
+    check. The required column set is the same as for ``.xlsx``.
+
+    Args:
+        path: Path to the .csv file.
+
+    Returns:
+        Tuple of (errors, warnings).
+    """
+    import csv
+
+    errors: List[str] = []
+    warnings: List[str] = []
+
+    try:
+        with path.open("r", newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            try:
+                header = next(reader)
+            except StopIteration:
+                return [f"Event CSV is empty: {path}"], warnings
+    except Exception as exc:
+        return [f"Failed to read .csv file: {exc}"], warnings
+
+    found = {str(col).strip().lower() for col in header if col}
+    missing = _REQUIRED_EVENT_COLUMNS - found
+    if missing:
+        errors.append(
+            f"CSV is missing required columns: {sorted(missing)}. "
+            f"Found: {sorted(found)}"
+        )
+
+    return errors, warnings
 
 
 def _validate_xlsx_event_file(path: Path) -> tuple[List[str], List[str]]:
@@ -198,7 +333,7 @@ def _validate_xlsx_event_file(path: Path) -> tuple[List[str], List[str]]:
     wb.close()
 
     found = set(header)
-    missing = _REQUIRED_XLSX_COLUMNS - found
+    missing = _REQUIRED_EVENT_COLUMNS - found
     if missing:
         errors.append(
             f"Sheet 'Behavior Data' is missing required columns: "
@@ -245,6 +380,7 @@ def detect_task_type(path: str | Path) -> str:
     """Auto-detect task type from an event file.
 
     Detection rules:
+        * ``.csv`` files originate from the REACHER/Labrynth export pipeline.
         * ``.xlsx`` files are assumed to originate from the Reacher paradigm.
         * ``.mat`` files containing event codes 50 or 51 in the ``eventlog``
           are classified as ``'legacy_eth'`` (ethanol self-administration).
@@ -264,7 +400,7 @@ def detect_task_type(path: str | Path) -> str:
     path = Path(path)
     suffix = path.suffix.lower()
 
-    if suffix == ".xlsx":
+    if suffix in (".csv", ".xlsx"):
         return "reacher"
 
     if suffix == ".mat":
@@ -290,7 +426,81 @@ def detect_task_type(path: str | Path) -> str:
 
     raise ValueError(
         f"Cannot detect task type for extension '{suffix}'. "
-        "Expected .xlsx or .mat."
+        "Expected .csv, .xlsx, or .mat."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Frame timestamps file (.csv)
+# ---------------------------------------------------------------------------
+
+_REQUIRED_FRAME_TS_COLUMNS = {"timestamp_ms"}
+
+
+def validate_frame_timestamps_file(path: str | Path) -> ValidationResult:
+    """Validate a ``frame_timestamps.csv`` file produced by REACHER.
+
+    Checks performed:
+        1. File exists.
+        2. Extension is ``.csv``.
+        3. Header contains ``timestamp_ms`` (required by pynapse's
+           ``Sample(frame_timestamps=...)`` loader).
+        4. A ``frame_index`` column is recommended (warned when missing; pynapse
+           tolerates its absence by assigning implicit ordering).
+
+    Args:
+        path: Filesystem path to the frame timestamps file.
+
+    Returns:
+        A ``ValidationResult`` with accumulated errors and warnings.
+    """
+    import csv
+
+    errors: List[str] = []
+    warnings: List[str] = []
+    path = Path(path)
+
+    if not path.exists():
+        return ValidationResult(valid=False, errors=[f"Frame timestamps file not found: {path}"])
+
+    if path.suffix.lower() != ".csv":
+        errors.append(f"Expected .csv extension, got '{path.suffix}'.")
+        return ValidationResult(valid=False, errors=errors, warnings=warnings)
+
+    try:
+        with path.open("r", newline="", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            try:
+                header = next(reader)
+            except StopIteration:
+                return ValidationResult(
+                    valid=False,
+                    errors=[f"Frame timestamps CSV is empty: {path}"],
+                )
+    except Exception as exc:
+        return ValidationResult(
+            valid=False,
+            errors=[f"Failed to read frame timestamps file: {exc}"],
+        )
+
+    found = {str(col).strip().lower() for col in header if col}
+    missing = _REQUIRED_FRAME_TS_COLUMNS - found
+    if missing:
+        errors.append(
+            f"frame_timestamps.csv is missing required columns: {sorted(missing)}. "
+            f"Found: {sorted(found)}"
+        )
+
+    if "frame_index" not in found:
+        warnings.append(
+            "frame_timestamps.csv has no 'frame_index' column; pynapse will "
+            "assign implicit ordering based on row order."
+        )
+
+    return ValidationResult(
+        valid=len(errors) == 0,
+        errors=errors,
+        warnings=warnings,
     )
 
 
