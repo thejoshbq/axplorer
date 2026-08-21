@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Download } from "lucide-react";
 import { api } from "../../api/client";
-import { useThemeStore } from "../../store/useThemeStore";
 import { useAnalysisStore } from "../../store/useAnalysisStore";
 import { usePlotStore } from "../../store/usePlotStore";
 
@@ -19,7 +18,6 @@ export function ExportPanel() {
   const [dataFmt, setDataFmt] = useState("csv");
   const [exporting, setExporting] = useState(false);
 
-  const mode = useThemeStore((s) => s.mode);
   const analysis = useAnalysisStore();
   const { plots, yRange, zRange, eventLabels } = usePlotStore();
 
@@ -33,7 +31,7 @@ export function ExportPanel() {
     setExporting(true);
     try {
       const label = eventLabels[0] ?? primaryEventLabel;
-      const blob = await api.exportFigure(plots, yRange, zRange, label, figureFmt, mode === "dark", analysis.enableZscore);
+      const blob = await api.exportFigure(plots, yRange, zRange, label, figureFmt, analysis.enableZscore);
       downloadBlob(blob, `axplorer_peth.${figureFmt}`);
     } catch (err) {
       console.error("Figure export failed:", err);
@@ -68,11 +66,11 @@ export function ExportPanel() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-s3">
       {/* Figure export */}
       <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">Figure Format</label>
-        <div className="flex gap-2">
+        <label className="block text-label text-ink-muted mb-s1">Figure Format</label>
+        <div className="flex gap-s2">
           <select value={figureFmt} onChange={(e) => setFigureFmt(e.target.value)} className="input-base flex-1">
             <option value="png">PNG</option>
             <option value="svg">SVG</option>
@@ -81,7 +79,7 @@ export function ExportPanel() {
           <button
             onClick={handleExportFigure}
             disabled={!hasPlotsToExport || exporting}
-            className="btn-sm bg-panel border border-theme-border text-accent disabled:opacity-50 flex items-center gap-1"
+            className="btn-sm bg-surface-1 border border-edge text-accent disabled:opacity-50 flex items-center gap-s1"
           >
             <Download size={12} />
             Figure
@@ -91,8 +89,8 @@ export function ExportPanel() {
 
       {/* Data export */}
       <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">Data Format</label>
-        <div className="flex gap-2">
+        <label className="block text-label text-ink-muted mb-s1">Data Format</label>
+        <div className="flex gap-s2">
           <select value={dataFmt} onChange={(e) => setDataFmt(e.target.value)} className="input-base flex-1">
             <option value="csv">CSV</option>
             <option value="hdf5">HDF5</option>
@@ -100,7 +98,7 @@ export function ExportPanel() {
           <button
             onClick={handleExportData}
             disabled={!primaryEventLabel || exporting}
-            className="btn-sm bg-panel border border-theme-border text-accent disabled:opacity-50 flex items-center gap-1"
+            className="btn-sm bg-surface-1 border border-edge text-accent disabled:opacity-50 flex items-center gap-s1"
           >
             <Download size={12} />
             Data

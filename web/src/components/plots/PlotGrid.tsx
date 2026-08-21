@@ -8,9 +8,9 @@ export function PlotGrid() {
 
   if (computing) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 text-[rgb(var(--color-text-secondary))]">
+      <div className="flex flex-col items-center justify-center h-64 gap-s3 text-ink-muted">
         <Loader2 size={32} className="animate-spin text-accent" />
-        <span className="text-sm">Computing PETH...</span>
+        <span className="text-body">Computing PETH...</span>
       </div>
     );
   }
@@ -18,7 +18,7 @@ export function PlotGrid() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-sm text-red-400 border border-red-400/20 bg-red-400/5 px-4 py-2 rounded">
+        <div className="text-body text-err border border-err/20 bg-err/5 px-s4 py-s2 rounded">
           {error}
         </div>
       </div>
@@ -27,24 +27,24 @@ export function PlotGrid() {
 
   if (plots.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-sm text-[rgb(var(--color-text-secondary))]">
+      <div className="flex items-center justify-center h-64 text-body text-ink-muted">
         Load data and compute to view PETH plots.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-center text-sm font-semibold text-accent">
+    <div className="space-y-s4">
+      <h3 className="text-center text-body font-semibold text-accent">
         PETH: {eventLabels.join(", ")}
       </h3>
-      <p className="text-center text-xs text-[rgb(var(--color-text-secondary))]">
+      <p className="text-center text-label text-ink-muted">
         Population trace shows mean and median. Mode is not shown -- not meaningful for continuous ΔF/F signals.
       </p>
       {dfofSkippedReason && (
-        <p className="text-center text-xs text-amber-500">{dfofSkippedReason}</p>
+        <p className="text-center text-label text-warn">{dfofSkippedReason}</p>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-s4">
         {plots.map((p, idx) => (
           <div key={idx} className="card">
             <PETHChart

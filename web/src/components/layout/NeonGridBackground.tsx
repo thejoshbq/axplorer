@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { useThemeStore } from "../../store/useThemeStore";
 
 interface PulseWave {
   z: number;
@@ -18,29 +17,23 @@ const PULSE_SPAWN_MIN = 3000;
 const PULSE_SPAWN_MAX = 6000;
 const SCANLINE_SPACING = 3;
 
+function hexToRgb(hex: string): [number, number, number] {
+  const m = hex.trim().replace("#", "");
+  const n = parseInt(m, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
 function readAccentRgb(): [number, number, number] {
   const raw = getComputedStyle(document.documentElement)
-    .getPropertyValue("--color-accent")
+    .getPropertyValue("--accent")
     .trim();
-  const parts = raw.split(/\s+/).map(Number);
-  if (parts.length >= 3) return [parts[0], parts[1], parts[2]];
-  return [0, 212, 216];
+  if (raw.startsWith("#")) return hexToRgb(raw);
+  return [0, 229, 255];
 }
 
 export function NeonGridBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const modeRef = useRef(useThemeStore.getState().mode);
   const accentRef = useRef<[number, number, number]>(readAccentRgb());
-
-  useEffect(() => {
-    const unsub = useThemeStore.subscribe((s) => {
-      modeRef.current = s.mode;
-      requestAnimationFrame(() => {
-        accentRef.current = readAccentRgb();
-      });
-    });
-    return unsub;
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -167,7 +160,7 @@ export function NeonGridBackground() {
     function drawStaticFrame() {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const isDark = modeRef.current === "dark";
+      const isDark = true;
       const [ar, ag, ab] = accentRef.current;
       const horizonY = h * 0.38;
       const cameraH = (h - horizonY) * Z_NEAR / FOCAL_LENGTH;
@@ -185,7 +178,7 @@ export function NeonGridBackground() {
       lastTime = now;
       const w = window.innerWidth;
       const h = window.innerHeight;
-      const isDark = modeRef.current === "dark";
+      const isDark = true;
       const [ar, ag, ab] = accentRef.current;
       const horizonY = h * 0.38;
       const cameraH = (h - horizonY) * Z_NEAR / FOCAL_LENGTH;
@@ -203,9 +196,8 @@ export function NeonGridBackground() {
     if (reducedMotion) {
       drawStaticFrame();
       const handleResize = () => { resize(); if (needsStaticRedraw) { drawStaticFrame(); needsStaticRedraw = false; } };
-      const unsub = useThemeStore.subscribe(() => { requestAnimationFrame(() => { accentRef.current = readAccentRgb(); drawStaticFrame(); }); });
       window.addEventListener("resize", handleResize);
-      return () => { window.removeEventListener("resize", handleResize); unsub(); };
+      return () => { window.removeEventListener("resize", handleResize); };
     }
 
     animationId = requestAnimationFrame(draw);

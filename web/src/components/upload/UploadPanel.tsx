@@ -30,12 +30,12 @@ export function UploadPanel() {
     !(availableH5Kinds.length > 0 && !h5Kind);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-s3">
       <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">
-          Neural Trace File <span className="opacity-50">(.npy / .h5)</span>
+        <label className="block text-label text-ink-muted mb-s1">
+          Neural Trace File <span className="text-ink-faint">(.npy / .h5)</span>
         </label>
-        <div className="flex gap-1">
+        <div className="flex gap-s1">
           <input
             type="text"
             value={tracePath}
@@ -45,7 +45,7 @@ export function UploadPanel() {
           />
           <button
             onClick={() => setBrowseTarget("trace")}
-            className="btn-sm bg-panel border border-theme-border text-accent"
+            className="btn-sm bg-surface-1 border border-edge text-accent"
             title="Browse filesystem"
           >
             <FolderOpen size={14} />
@@ -55,8 +55,8 @@ export function UploadPanel() {
 
       {availableH5Kinds.length > 0 && (
         <div>
-          <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">
-            Trace Kind <span className="opacity-50">(required for .h5 sources)</span>
+          <label className="block text-label text-ink-muted mb-s1">
+            Trace Kind <span className="text-ink-faint">(required for .h5 sources)</span>
           </label>
           <select
             value={h5Kind ?? ""}
@@ -72,10 +72,10 @@ export function UploadPanel() {
       )}
 
       <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">
-          Behavior Event File <span className="opacity-50">(.csv / .mat / .xlsx)</span>
+        <label className="block text-label text-ink-muted mb-s1">
+          Behavior Event File <span className="text-ink-faint">(.csv / .mat / .xlsx)</span>
         </label>
-        <div className="flex gap-1">
+        <div className="flex gap-s1">
           <input
             type="text"
             value={eventPath}
@@ -85,7 +85,7 @@ export function UploadPanel() {
           />
           <button
             onClick={() => setBrowseTarget("event")}
-            className="btn-sm bg-panel border border-theme-border text-accent"
+            className="btn-sm bg-surface-1 border border-edge text-accent"
             title="Browse filesystem"
           >
             <FolderOpen size={14} />
@@ -94,10 +94,10 @@ export function UploadPanel() {
       </div>
 
       <div>
-        <label className="block text-xs text-[rgb(var(--color-text-secondary))] mb-1">
-          Frame Timestamps <span className="opacity-50">(optional -- must be named frame_timestamps.csv)</span>
+        <label className="block text-label text-ink-muted mb-s1">
+          Frame Timestamps <span className="text-ink-faint">(optional -- must be named frame_timestamps.csv)</span>
         </label>
-        <div className="flex gap-1">
+        <div className="flex gap-s1">
           <input
             type="text"
             value={frameTimestampsPath}
@@ -107,7 +107,7 @@ export function UploadPanel() {
           />
           <button
             onClick={() => setBrowseTarget("frameTimestamps")}
-            className="btn-sm bg-panel border border-theme-border text-accent"
+            className="btn-sm bg-surface-1 border border-edge text-accent"
             title="Browse filesystem"
           >
             <FolderOpen size={14} />
@@ -118,7 +118,7 @@ export function UploadPanel() {
       <button
         onClick={loadData}
         disabled={loading || !canLoad}
-        className="btn-sm w-full bg-accent text-accent-contrast font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+        className="btn-sm w-full bg-accent text-accent-ink font-semibold flex items-center justify-center gap-s2 disabled:opacity-50"
       >
         {loading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
         {loading ? "Loading..." : "Load Data"}

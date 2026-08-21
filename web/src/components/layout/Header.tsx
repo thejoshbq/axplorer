@@ -1,5 +1,3 @@
-import { ThemeToggle } from "./ThemeToggle";
-
 function BrainSearchIcon() {
   return (
     <svg
@@ -25,10 +23,10 @@ function BrainSearchIcon() {
 
 export function Header() {
   return (
-    <header className="glass-panel border-b border-theme-border px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-3">
+    <header className="crt bg-surface-2 border-b border-edge px-s5 py-s3 flex items-center justify-between">
+      <div className="flex items-center gap-s3">
         <BrainSearchIcon />
-        <h1 className="text-xl font-bold text-accent title-glow tracking-wide glitch-hover">
+        <h1 className="text-h1 font-display font-bold text-accent title-glow tracking-wide glitch-hover">
           // Axplorer
         </h1>
         <div className="sys-online">
@@ -36,7 +34,6 @@ export function Header() {
           <span className="sys-label">SYS_ONLINE</span>
         </div>
       </div>
-      <ThemeToggle />
     </header>
   );
 }

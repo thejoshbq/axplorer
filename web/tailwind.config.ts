@@ -1,37 +1,14 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  presets: [require("@phoxel/tokens/tailwind")],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
-  darkMode: "class",
   theme: {
     extend: {
-      fontFamily: {
-        mono: ['"JetBrains Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
-        sans: ["Inter", "system-ui", "sans-serif"],
-        rajdhani: ["'Rajdhani'", "sans-serif"],
-        shareTechMono: ["'Share Tech Mono'", "monospace"],
-      },
-      colors: {
-        surface: {
-          DEFAULT: "rgb(var(--color-surface) / <alpha-value>)",
-        },
-        panel: {
-          DEFAULT: "rgb(var(--color-panel) / <alpha-value>)",
-        },
-        accent: {
-          DEFAULT: "rgb(var(--color-accent) / <alpha-value>)",
-          hover: "rgb(var(--color-accent-hover) / <alpha-value>)",
-          contrast: "rgb(var(--color-accent-contrast) / <alpha-value>)",
-        },
-        theme: {
-          border: "rgb(var(--color-border) / 0.12)",
-          text: "rgb(var(--color-text-primary) / <alpha-value>)",
-        },
-        input: "rgb(var(--color-input) / <alpha-value>)",
-      },
+      // Axplorer-specific decorative extras -- not part of the token contract.
       boxShadow: {
-        glow: "0 0 12px rgb(var(--color-accent) / 0.25)",
-        "glow-sm": "0 0 6px rgb(var(--color-accent) / 0.15)",
+        glow: "0 0 12px var(--accent-soft)",
+        "glow-sm": "0 0 6px var(--accent-soft)",
       },
       keyframes: {
         blink: {
@@ -50,8 +27,8 @@ export default {
           "75%": { transform: "rotate(2deg) scale(0.97)" },
         },
         "reacher-glow": {
-          "0%, 100%": { filter: "drop-shadow(0 0 3px rgb(var(--color-accent) / 0.3))" },
-          "50%": { filter: "drop-shadow(0 0 8px rgb(var(--color-accent) / 0.6))" },
+          "0%, 100%": { filter: "drop-shadow(0 0 3px var(--accent-soft))" },
+          "50%": { filter: "drop-shadow(0 0 8px var(--accent))" },
         },
         "mouse-run": {
           "0%, 100%": { transform: "rotate(0deg)" },
