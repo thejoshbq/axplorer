@@ -1,7 +1,7 @@
 import { useDataStore } from "../../store/useDataStore";
 
 export function StatusIndicator() {
-  const { status, loading, fovCount, populationNames } = useDataStore();
+  const { status, loading, fovCount } = useDataStore();
   const isLoaded = fovCount > 0;
 
   return (
@@ -13,11 +13,6 @@ export function StatusIndicator() {
           : "border-theme-border text-[rgb(var(--color-text-secondary))]"
     }`}>
       {status}
-      {isLoaded && populationNames.length > 0 && (
-        <div className="mt-1 text-[rgb(var(--color-text-secondary))]">
-          Populations: {populationNames.join(", ")}
-        </div>
-      )}
     </div>
   );
 }

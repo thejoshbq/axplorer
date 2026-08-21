@@ -6,6 +6,7 @@ interface PlotData {
   title: string;
   time: number[];
   mean: number[];
+  median: number[];
   sem: number[];
   heatmap?: HeatmapData;
 }
@@ -14,7 +15,8 @@ interface PlotStore {
   plots: PlotData[];
   yRange: [number, number];
   zRange: [number, number];
-  eventLabel: string;
+  eventLabels: string[];
+  dfofSkippedReason: string | null;
   computing: boolean;
   error: string | null;
 
@@ -26,7 +28,8 @@ export const usePlotStore = create<PlotStore>((set) => ({
   plots: [],
   yRange: [0, 1],
   zRange: [0, 1],
-  eventLabel: "",
+  eventLabels: [],
+  dfofSkippedReason: null,
   computing: false,
   error: null,
 
@@ -35,7 +38,7 @@ export const usePlotStore = create<PlotStore>((set) => ({
     set({ computing: true, error: null });
     try {
       const res = await api.compute({
-        event_label: a.eventLabel,
+        event_labels: a.eventLabels,
         view_level: a.viewLevel,
         pre_event_s: a.preEventS,
         post_event_s: a.postEventS,
@@ -54,7 +57,8 @@ export const usePlotStore = create<PlotStore>((set) => ({
         plots: res.plots,
         yRange: res.y_range as [number, number],
         zRange: res.z_range as [number, number],
-        eventLabel: res.event_label,
+        eventLabels: res.event_labels,
+        dfofSkippedReason: res.dfof_skipped_reason,
       });
     } catch (err) {
       set({
@@ -64,5 +68,6 @@ export const usePlotStore = create<PlotStore>((set) => ({
     }
   },
 
-  clear: () => set({ plots: [], yRange: [0, 1], zRange: [0, 1], eventLabel: "", error: null }),
+  clear: () =>
+    set({ plots: [], yRange: [0, 1], zRange: [0, 1], eventLabels: [], dfofSkippedReason: null, error: null }),
 }));

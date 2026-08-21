@@ -23,7 +23,7 @@ class SessionMeta:
     sex: str
     fov: str
     is_tracked: bool
-    npy_paths: tuple[Path, ...]
+    npy_paths: tuple[Path, ...]  # signal file paths -- .npy (legacy) or .h5 (roigbiv)
     event_paths: tuple[Path, ...]
     frame_timestamps_path: Path | None = None
 
@@ -49,6 +49,7 @@ class SessionMetadata:
     effective_fps: float
     duration_s: float
     task_type: str
+    signal_kind: Optional[str] = None  # h5 trace kind ("f"/"dff"/"raw"/"neuropil"), None for legacy .npy
 
 
 @dataclass
@@ -86,6 +87,8 @@ class PopulationPETHResult:
         pooled_mean: All neurons stacked across sessions (total_neurons, time).
         session_means: One mean trace per session (n_sessions, time).
         grand_mean: Mean across sessions (time,).
+        grand_median: Median across sessions (time,). Mode is intentionally
+            omitted -- not meaningful for continuous ΔF/F signals.
         grand_sem: SEM across sessions, N = n_sessions (time,).
         time_axis: Shared time axis (time,).
         event_label: Event label used for the PETH.
@@ -101,6 +104,7 @@ class PopulationPETHResult:
     pooled_mean: NDArray[np.float32]
     session_means: NDArray[np.float32]
     grand_mean: NDArray[np.float32]
+    grand_median: NDArray[np.float32]
     grand_sem: NDArray[np.float32]
     time_axis: NDArray[np.float64]
     event_label: str

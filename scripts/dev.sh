@@ -68,7 +68,8 @@ for _ in $(seq 1 40); do
   sleep 0.5
 done
 
-echo "[dev] starting frontend: npm --prefix web run dev (watch Vite's output for the Local URL)"
+echo "[dev] starting frontend: npm --prefix web run dev"
+echo "[dev] Vite binds all interfaces -- use its printed Network URL from other devices"
 npm --prefix web run dev &
 frontend_pid=$!
 

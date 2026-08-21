@@ -4,7 +4,7 @@ import { HeatmapChart } from "./HeatmapChart";
 import { Loader2 } from "lucide-react";
 
 export function PlotGrid() {
-  const { plots, yRange, zRange, eventLabel, computing, error } = usePlotStore();
+  const { plots, yRange, zRange, eventLabels, dfofSkippedReason, computing, error } = usePlotStore();
 
   if (computing) {
     return (
@@ -36,8 +36,14 @@ export function PlotGrid() {
   return (
     <div className="space-y-4">
       <h3 className="text-center text-sm font-semibold text-accent">
-        PETH: {eventLabel}
+        PETH: {eventLabels.join(", ")}
       </h3>
+      <p className="text-center text-xs text-[rgb(var(--color-text-secondary))]">
+        Population trace shows mean and median. Mode is not shown -- not meaningful for continuous ΔF/F signals.
+      </p>
+      {dfofSkippedReason && (
+        <p className="text-center text-xs text-amber-500">{dfofSkippedReason}</p>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {plots.map((p, idx) => (
           <div key={idx} className="card">
@@ -45,6 +51,7 @@ export function PlotGrid() {
               title={p.title}
               time={p.time}
               mean={p.mean}
+              median={p.median}
               sem={p.sem}
               yRange={yRange}
               colorIndex={idx}

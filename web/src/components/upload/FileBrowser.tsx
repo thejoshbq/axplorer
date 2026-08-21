@@ -5,6 +5,7 @@ import {
   File,
   FileSpreadsheet,
   Folder,
+  Table,
   X,
 } from "lucide-react";
 import { api } from "../../api/client";
@@ -28,6 +29,8 @@ const ICON_MAP: Record<string, typeof File> = {
   npy: File,
   mat: FileSpreadsheet,
   xlsx: FileSpreadsheet,
+  h5: File,
+  csv: Table,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -35,6 +38,8 @@ const TYPE_LABELS: Record<string, string> = {
   npy: ".npy",
   mat: ".mat",
   xlsx: ".xlsx",
+  h5: ".h5",
+  csv: ".csv",
 };
 
 function formatSize(bytes: number | null): string {

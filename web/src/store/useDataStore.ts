@@ -2,97 +2,59 @@ import { create } from "zustand";
 import { api } from "../api/client";
 
 interface DataStore {
-  source: "filesystem" | "database";
-  dbPath: string;
-  dataLevel: string;
-  paths: string[];
+  tracePath: string;
+  eventPath: string;
+  frameTimestampsPath: string;
   loading: boolean;
   status: string;
   availableEvents: string[];
   fovCount: number;
   populationCount: number;
   populationNames: string[];
-  detectedSource: string | null;
-  detectedLevel: string | null;
+  availableH5Kinds: string[];
+  h5Kind: string | null;
+  signalKind: string | null;
 
-  setSource: (source: "filesystem" | "database") => void;
-  setDbPath: (path: string) => void;
-  setDataLevel: (level: string) => void;
-  addPath: (path: string) => void;
-  addPaths: (paths: string[]) => void;
-  removePath: (path: string) => void;
+  setTracePath: (path: string) => void;
+  setEventPath: (path: string) => void;
+  setFrameTimestampsPath: (path: string) => void;
+  setH5Kind: (kind: string | null) => void;
   loadData: () => Promise<void>;
 }
 
 export const useDataStore = create<DataStore>((set, get) => ({
-  source: "filesystem",
-  dbPath: "",
-  dataLevel: "Project",
-  paths: [],
+  tracePath: "",
+  eventPath: "",
+  frameTimestampsPath: "",
   loading: false,
   status: "No data loaded.",
   availableEvents: [],
   fovCount: 0,
   populationCount: 0,
   populationNames: [],
-  detectedSource: null,
-  detectedLevel: null,
+  availableH5Kinds: [],
+  h5Kind: null,
+  signalKind: null,
 
-  setSource: (source) => set({ source }),
-  setDbPath: (path) => set({ dbPath: path }),
-  setDataLevel: (level) => set({ dataLevel: level }),
-
-  addPath: (path) => {
-    const s = get();
-    if (s.paths.includes(path)) return;
-    const newPaths = [...s.paths, path];
-    set({ paths: newPaths });
-    // Auto-detect in background.
-    api.detect(newPaths).then((res) => {
-      set({
-        detectedSource: res.source,
-        detectedLevel: res.data_level,
-        source: res.source as "filesystem" | "database",
-        dataLevel: res.data_level,
-      });
+  setTracePath: (path) => {
+    set({ tracePath: path, availableH5Kinds: [], h5Kind: null });
+    if (!path) return;
+    // Auto-detect available trace kinds for .h5 sources in the background.
+    api.detect([path]).then((res) => {
+      set({ availableH5Kinds: res.available_h5_kinds });
     }).catch(() => {});
   },
 
-  addPaths: (paths) => {
-    const s = get();
-    const unique = paths.filter((p) => !s.paths.includes(p));
-    if (unique.length === 0) return;
-    const newPaths = [...s.paths, ...unique];
-    set({ paths: newPaths });
-    api.detect(newPaths).then((res) => {
-      set({
-        detectedSource: res.source,
-        detectedLevel: res.data_level,
-        source: res.source as "filesystem" | "database",
-        dataLevel: res.data_level,
-      });
-    }).catch(() => {});
-  },
-
-  removePath: (path) =>
-    set((s) => {
-      const paths = s.paths.filter((p) => p !== path);
-      if (paths.length === 0) {
-        return { paths, detectedSource: null, detectedLevel: null };
-      }
-      return { paths };
-    }),
+  setEventPath: (path) => set({ eventPath: path }),
+  setFrameTimestampsPath: (path) => set({ frameTimestampsPath: path }),
+  setH5Kind: (kind) => set({ h5Kind: kind }),
 
   loadData: async () => {
-    const { source, dbPath, dataLevel, paths } = get();
+    const { tracePath, eventPath, frameTimestampsPath, h5Kind } = get();
+    const paths = [tracePath, eventPath, frameTimestampsPath].filter(Boolean);
     set({ loading: true, status: "Loading..." });
     try {
-      const res = await api.loadData(
-        paths,
-        source,
-        dataLevel,
-        dbPath || undefined,
-      );
+      const res = await api.loadData(paths, "filesystem", "Files", undefined, h5Kind);
       set({
         loading: false,
         status: res.status,
@@ -100,6 +62,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         fovCount: res.fov_count,
         populationCount: res.population_count,
         populationNames: res.population_names,
+        signalKind: h5Kind,
       });
     } catch (err) {
       set({

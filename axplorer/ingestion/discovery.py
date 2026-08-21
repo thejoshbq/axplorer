@@ -129,12 +129,15 @@ def _process_fov(phase: str, animal_id: str, fov_dir: Path) -> SessionMeta:
     Raises:
         _SkipFOV: If the directory doesn't contain a valid file pair.
     """
-    # Find .npy signal files matching the expected pattern.
+    # Find signal files: legacy *extractedsignals_raw.npy, falling back to a
+    # roigbiv *.h5 trace export (no fixed suffix convention there).
     npy_files = sorted(fov_dir.glob("*extractedsignals_raw.npy"))
-    logger.debug("FOV %s: found %d .npy files", fov_dir, len(npy_files))
+    if not npy_files:
+        npy_files = sorted(fov_dir.glob("*.h5"))
+    logger.debug("FOV %s: found %d signal files", fov_dir, len(npy_files))
 
     if len(npy_files) == 0:
-        raise _SkipFOV("no *extractedsignals_raw.npy file found")
+        raise _SkipFOV("no *extractedsignals_raw.npy or *.h5 signal file found")
 
     # Find event files: prefer REACHER CSV, fall back to MAT then XLSX.
     event_files = sorted(fov_dir.glob("behavior_events*.csv"))

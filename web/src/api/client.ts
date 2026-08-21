@@ -7,7 +7,7 @@ interface LoadResponse {
 }
 
 interface ComputeRequest {
-  event_label: string;
+  event_labels: string[];
   view_level: string;
   pre_event_s: number;
   post_event_s: number;
@@ -33,6 +33,7 @@ interface PlotData {
   title: string;
   time: number[];
   mean: number[];
+  median: number[];
   sem: number[];
   heatmap?: HeatmapData;
 }
@@ -41,7 +42,8 @@ interface ComputeResponse {
   plots: PlotData[];
   y_range: number[];
   z_range: number[];
-  event_label: string;
+  event_labels: string[];
+  dfof_skipped_reason: string | null;
 }
 
 interface StatusResponse {
@@ -69,6 +71,7 @@ export interface BrowseResponse {
 interface DetectResponse {
   source: string;
   data_level: string;
+  available_h5_kinds: string[];
 }
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
@@ -89,6 +92,7 @@ export const api = {
     source?: string | null,
     dataLevel?: string | null,
     dbPath?: string | null,
+    h5Kind?: string | null,
   ) =>
     request<LoadResponse>("/api/load", {
       method: "POST",
@@ -97,6 +101,7 @@ export const api = {
         data_level: dataLevel ?? null,
         paths,
         db_path: dbPath ?? null,
+        h5_kind: h5Kind ?? null,
       }),
     }),
 

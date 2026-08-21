@@ -8,9 +8,11 @@ import pytest
 from axplorer.ingestion.validators import (
     ValidationResult,
     detect_task_type,
+    list_h5_kinds,
     validate_alignment,
     validate_event_file,
     validate_frame_timestamps_file,
+    validate_h5_signal_file,
     validate_signal_file,
 )
 
@@ -189,3 +191,62 @@ class TestValidateAlignment:
         result = validate_alignment(1200, 5000, 4)
         assert not result.valid
         assert any("Severe" in e for e in result.errors)
+
+
+class TestValidateH5SignalFile:
+    """Tests for validate_h5_signal_file, and validate_signal_file's .h5 dispatch."""
+
+    def test_valid_file(self, mock_h5_signal_path):
+        result = validate_h5_signal_file(mock_h5_signal_path)
+        assert result.valid
+        assert result.errors == []
+
+    def test_dispatch_from_validate_signal_file(self, mock_h5_signal_path):
+        """validate_signal_file() routes .h5 paths to the h5-specific checks."""
+        result = validate_signal_file(mock_h5_signal_path)
+        assert result.valid
+
+    def test_missing_file(self, tmp_path):
+        result = validate_h5_signal_file(tmp_path / "nonexistent.h5")
+        assert not result.valid
+        assert any("not found" in e for e in result.errors)
+
+    def test_no_recognized_kind(self, tmp_path):
+        import pandas as pd
+
+        path = tmp_path / "empty.h5"
+        with pd.HDFStore(str(path), mode="w") as store:
+            store.put("/something_else", pd.DataFrame({"a": [1, 2]}))
+        result = validate_h5_signal_file(path)
+        assert not result.valid
+        assert any("No recognized trace kind" in e for e in result.errors)
+
+    def test_missing_meta_warns(self, tmp_path):
+        import pandas as pd
+
+        path = tmp_path / "no_meta.h5"
+        with pd.HDFStore(str(path), mode="w") as store:
+            store.put("/f", pd.DataFrame(np.zeros((10, 3))), format="table")
+        result = validate_h5_signal_file(path)
+        assert result.valid  # missing /meta is a warning, not an error
+        assert any("meta" in w for w in result.warnings)
+
+    def test_not_an_hdf5_file(self, tmp_path):
+        path = tmp_path / "corrupt.h5"
+        path.write_text("not an hdf5 file")
+        result = validate_h5_signal_file(path)
+        assert not result.valid
+        assert any("Failed to open" in e for e in result.errors)
+
+
+class TestListH5Kinds:
+    """Tests for list_h5_kinds."""
+
+    def test_lists_present_kinds(self, mock_h5_signal_path):
+        assert list_h5_kinds(mock_h5_signal_path) == ["f", "dff"]
+
+    def test_only_f_present(self, mock_h5_signal_only_f_path):
+        assert list_h5_kinds(mock_h5_signal_only_f_path) == ["f"]
+
+    def test_missing_file_returns_empty(self, tmp_path):
+        assert list_h5_kinds(tmp_path / "nonexistent.h5") == []

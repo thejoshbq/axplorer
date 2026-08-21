@@ -16,13 +16,16 @@ _TYPE_MAP = {
     ".npy": "npy",
     ".mat": "mat",
     ".xlsx": "xlsx",
+    ".h5": "h5",
+    ".hdf5": "h5",
+    ".csv": "csv",
 }
 
 
 class BrowseEntry(BaseModel):
     name: str
     path: str
-    type: str  # "dir" | "duckdb" | "npy" | "mat" | "xlsx" | "file"
+    type: str  # "dir" | "duckdb" | "npy" | "mat" | "xlsx" | "h5" | "csv" | "file"
     size: int | None = None
 
 

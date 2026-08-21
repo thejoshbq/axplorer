@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 interface AnalysisStore {
-  eventLabel: string;
+  eventLabels: string[];
   viewLevel: string;
   preEventS: number;
   postEventS: number;
@@ -15,8 +15,8 @@ interface AnalysisStore {
   enableHeatmap: boolean;
   sortMethod: string;
 
-  setEventLabel: (v: string) => void;
-  setViewLevel: (v: string) => void;
+  setEventLabels: (v: string[]) => void;
+  toggleEventLabel: (v: string) => void;
   setPreEventS: (v: number) => void;
   setPostEventS: (v: number) => void;
   setEnableDfof: (v: boolean) => void;
@@ -30,9 +30,9 @@ interface AnalysisStore {
   setSortMethod: (v: string) => void;
 }
 
-export const useAnalysisStore = create<AnalysisStore>((set) => ({
-  eventLabel: "",
-  viewLevel: "Population",
+export const useAnalysisStore = create<AnalysisStore>((set, get) => ({
+  eventLabels: [],
+  viewLevel: "FOV",
   preEventS: 5.0,
   postEventS: 10.0,
   enableDfof: true,
@@ -45,8 +45,15 @@ export const useAnalysisStore = create<AnalysisStore>((set) => ({
   enableHeatmap: true,
   sortMethod: "none",
 
-  setEventLabel: (v) => set({ eventLabel: v }),
-  setViewLevel: (v) => set({ viewLevel: v }),
+  setEventLabels: (v) => set({ eventLabels: v }),
+  toggleEventLabel: (v) => {
+    const { eventLabels } = get();
+    set({
+      eventLabels: eventLabels.includes(v)
+        ? eventLabels.filter((l) => l !== v)
+        : [...eventLabels, v],
+    });
+  },
   setPreEventS: (v) => set({ preEventS: v }),
   setPostEventS: (v) => set({ postEventS: v }),
   setEnableDfof: (v) => set({ enableDfof: v }),

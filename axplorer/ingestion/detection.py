@@ -19,13 +19,13 @@ class InputType(str, Enum):
 
 def _is_fov_dir(d: Path) -> bool:
     """Check if a directory looks like a FOV directory."""
-    has_npy = any(d.glob("*extractedsignals_raw.npy"))
+    has_signal = any(d.glob("*extractedsignals_raw.npy")) or any(d.glob("*.h5"))
     has_events = (
         any(d.glob("behavior_events*.csv"))
         or any(d.glob("*.mat"))
         or any(d.glob("*.xlsx"))
     )
-    return has_npy and has_events
+    return has_signal and has_events
 
 
 def _first_visible_subdir(d: Path) -> Path | None:
@@ -51,7 +51,7 @@ def detect_input_type(path: str | Path) -> InputType:
         ext = p.suffix.lower()
         if ext == ".duckdb":
             return InputType.DUCKDB
-        if ext == ".npy":
+        if ext in (".npy", ".h5", ".hdf5"):
             return InputType.SIGNAL_FILE
         if ext in (".mat", ".xlsx", ".csv"):
             return InputType.EVENT_FILE

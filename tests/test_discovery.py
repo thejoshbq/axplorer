@@ -95,6 +95,14 @@ class TestDiscoverSessions:
         assert len(result) == 0
         assert "no behavior event file" in caplog.text
 
+    def test_h5_signal_fallback(self, mock_h5_data_hierarchy: Path) -> None:
+        """A FOV with a roigbiv .h5 (no .npy) is still discovered."""
+        result = discover_sessions(mock_h5_data_hierarchy)
+
+        assert len(result) == 1
+        assert result[0].npy_paths[0].suffix == ".h5"
+        assert result[0].event_paths[0].name == "behavior_events.csv"
+
     def test_multiple_npy(self, tmp_path: Path) -> None:
         """FOV with two .npy files collects both into npy_paths."""
         _make_fov(

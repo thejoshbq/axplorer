@@ -111,3 +111,51 @@ class TestLoadSessionFiles:
         # when a frame_timestamps path is wired through.
         external = getattr(sample, "_external_frame_ts", None)
         assert external is not None
+
+
+class TestLoadSessionFilesH5:
+    """Tests for load_session_files' roigbiv .h5 signal branch."""
+
+    def test_successful_load(self, mock_h5_signal_path, mock_h5_event_path):
+        sample, meta = load_session_files(
+            signal_path=mock_h5_signal_path,
+            event_path=mock_h5_event_path,
+            task_type="reacher",
+            h5_kind="f",
+        )
+        assert meta.n_neurons == 10
+        assert meta.signal_kind == "f"
+        assert meta.effective_fps == pytest.approx(7.5)
+        assert sample.get_signals().shape == (10, 200)
+
+    def test_missing_h5_kind_raises(self, mock_h5_signal_path, mock_h5_event_path):
+        with pytest.raises(LoadError, match="h5_kind is required"):
+            load_session_files(
+                signal_path=mock_h5_signal_path,
+                event_path=mock_h5_event_path,
+                task_type="reacher",
+            )
+
+    def test_invalid_h5_kind_raises(self, mock_h5_signal_path, mock_h5_event_path):
+        with pytest.raises(LoadError, match="not present"):
+            load_session_files(
+                signal_path=mock_h5_signal_path,
+                event_path=mock_h5_event_path,
+                task_type="reacher",
+                h5_kind="raw",  # fixture only writes f/dff
+            )
+
+    def test_frame_timestamps_derived_from_fs(self, mock_h5_signal_path, mock_h5_event_path):
+        """fps/frame_averaging args are ignored -- fps comes from /meta's fs."""
+        sample, _ = load_session_files(
+            signal_path=mock_h5_signal_path,
+            event_path=mock_h5_event_path,
+            fps=999.0,  # should be ignored
+            frame_averaging=99,  # should be ignored
+            task_type="reacher",
+            h5_kind="f",
+        )
+        assert sample.effective_fps == pytest.approx(7.5)
+        external = getattr(sample, "_external_frame_ts", None)
+        assert external is not None
+        assert len(external) == 200

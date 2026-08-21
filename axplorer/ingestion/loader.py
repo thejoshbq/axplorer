@@ -10,7 +10,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional, Tuple
 
+import numpy as np
+
 from pynapse.core import Sample
+from pynapse.core.io.microscopy import SignalRecording
 from pynapse.config.events import TASK_TO_DICT
 
 from axplorer.types import SessionMetadata
@@ -19,6 +22,7 @@ from axplorer.ingestion.validators import (
     validate_event_file,
     validate_frame_timestamps_file,
     detect_task_type,
+    list_h5_kinds,
 )
 
 
@@ -42,6 +46,7 @@ def load_session_files(
     task_type: str | None = None,
     session_name: str | None = None,
     frame_timestamps_path: str | Path | None = None,
+    h5_kind: str | None = None,
 ) -> Tuple[Sample, SessionMetadata]:
     """Load and validate signal + event files into a Pynapse Sample.
 
@@ -50,12 +55,16 @@ def load_session_files(
     summary from the resulting object.
 
     Args:
-        signal_path: Path(s) to ``.npy`` signal file(s) (neurons x frames).
-            A single path or a list of paths for multi-file FOVs.
+        signal_path: Path(s) to a ``.npy`` signal file (neurons x frames) or
+            a roigbiv ``.h5`` trace export. A single path or a list of paths
+            for multi-file FOVs. Mixing ``.npy`` and ``.h5`` is not supported.
         event_path: Path(s) to ``.csv``, ``.xlsx``, or ``.mat`` event file(s).
             A single path or a list of paths for multi-file FOVs.
-        fps: Raw imaging frame rate in Hz.
+        fps: Raw imaging frame rate in Hz. Ignored for ``.h5`` signal sources
+            -- their effective rate comes from the file's ``/meta`` table.
         frame_averaging: Number of raw frames binned into each signal frame.
+            Ignored for ``.h5`` signal sources (already baked into ``/meta``'s
+            ``fs``).
         task_type: One of ``'reacher'``, ``'legacy_her'``, or
             ``'legacy_eth'``. Auto-detected from the event file if ``None``.
         session_name: Human-readable session label. Defaults to the first
@@ -66,19 +75,28 @@ def load_session_files(
             automatically. Passed through to pynapse's
             ``Sample(frame_timestamps=...)`` so event→frame alignment uses
             real acquisition timestamps instead of a synthetic clock grid.
+            Ignored for ``.h5`` signal sources, which derive a uniform
+            frame-timestamp grid from ``/meta``'s ``fs`` instead.
+        h5_kind: Which trace kind to load when ``signal_path`` is a ``.h5``
+            file -- one of ``"f"``, ``"dff"``, ``"raw"``, ``"neuropil"``.
+            Required (no default) when the signal source is ``.h5``; ignored
+            for ``.npy`` sources.
 
     Returns:
         Tuple of ``(Sample, SessionMetadata)``.
 
     Raises:
-        LoadError: If either file fails validation or the task type is
-            unrecognized.
+        LoadError: If either file fails validation, the task type is
+            unrecognized, or (for ``.h5`` signal sources) ``h5_kind`` is
+            missing or not present in the file.
     """
     # Normalize to lists.
     if isinstance(signal_path, (str, Path)):
         signal_paths = [Path(signal_path)]
     else:
         signal_paths = [Path(p) for p in signal_path]
+
+    is_h5_signal = signal_paths[0].suffix.lower() in (".h5", ".hdf5")
 
     if isinstance(event_path, (str, Path)):
         event_paths = [Path(p) for p in ([event_path] if isinstance(event_path, (str, Path)) else event_path)]
@@ -94,6 +112,19 @@ def load_session_files(
         sig_result = validate_signal_file(sp)
         if not sig_result.valid:
             errors.extend(sig_result.errors)
+
+    if is_h5_signal:
+        available_kinds = list_h5_kinds(signal_paths[0])
+        if h5_kind is None:
+            errors.append(
+                f"h5_kind is required for .h5 signal sources (no default trace "
+                f"kind). Available kinds in {signal_paths[0].name}: {available_kinds}"
+            )
+        elif h5_kind not in available_kinds:
+            errors.append(
+                f"h5_kind '{h5_kind}' not present in {signal_paths[0].name}. "
+                f"Available kinds: {available_kinds}"
+            )
 
     for ep in event_paths:
         evt_result = validate_event_file(ep)
@@ -165,10 +196,6 @@ def load_session_files(
     # ------------------------------------------------------------------
     # 5. Construct Pynapse Sample (supports multi-file natively)
     # ------------------------------------------------------------------
-    signal_data: str | list[str] = (
-        [str(p) for p in signal_paths] if len(signal_paths) > 1
-        else str(signal_paths[0])
-    )
     event_data: str | list[str] = (
         [str(p) for p in converted_event_paths]
         if len(converted_event_paths) > 1
@@ -177,15 +204,43 @@ def load_session_files(
 
     try:
         try:
-            sample = Sample(
-                event_data=event_data,
-                signal_data=signal_data,
-                name=session_name,
-                event_dict=event_dict,
-                fps=fps,
-                frame_averaging=frame_averaging,
-                frame_timestamps=str(resolved_ft_path) if resolved_ft_path is not None else None,
-            )
+            if is_h5_signal:
+                # Build the SignalRecording ourselves so we can read /meta's
+                # authoritative fs and derive a uniform frame-timestamp grid --
+                # the same extension points Sample already exposes for the
+                # REACHER path (pre-built SignalRecording + external
+                # frame_timestamps), so Sample itself needs no h5-awareness.
+                signal_recording = SignalRecording(
+                    source=[str(p) for p in signal_paths] if len(signal_paths) > 1
+                    else str(signal_paths[0]),
+                    name=session_name,
+                    kind=h5_kind,
+                )
+                h5_fs = signal_recording.fs
+                h5_frame_timestamps = np.arange(signal_recording.num_frames) / h5_fs * 1000.0
+                sample = Sample(
+                    event_data=event_data,
+                    signal_data=signal_recording,
+                    name=session_name,
+                    event_dict=event_dict,
+                    fps=h5_fs,
+                    frame_averaging=1,
+                    frame_timestamps=h5_frame_timestamps,
+                )
+            else:
+                signal_data: str | list[str] = (
+                    [str(p) for p in signal_paths] if len(signal_paths) > 1
+                    else str(signal_paths[0])
+                )
+                sample = Sample(
+                    event_data=event_data,
+                    signal_data=signal_data,
+                    name=session_name,
+                    event_dict=event_dict,
+                    fps=fps,
+                    frame_averaging=frame_averaging,
+                    frame_timestamps=str(resolved_ft_path) if resolved_ft_path is not None else None,
+                )
         except Exception as exc:
             raise LoadError([f"Pynapse Sample construction failed: {exc}"]) from exc
 
@@ -203,6 +258,7 @@ def load_session_files(
             effective_fps=sample.effective_fps,
             duration_s=sample.num_frames / sample.effective_fps,
             task_type=task_type,
+            signal_kind=h5_kind if is_h5_signal else None,
         )
 
         return sample, metadata

@@ -53,6 +53,86 @@ def signal_with_nan(tmp_path: Path) -> Path:
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# roigbiv .h5 signal fixtures
+# ──────────────────────────────────────────────────────────────────────────
+
+H5_N_FRAMES = 200
+H5_FS = 7.5
+
+
+def _make_roigbiv_h5(
+    path: Path,
+    n_neurons: int = N_NEURONS,
+    n_frames: int = H5_N_FRAMES,
+    fs: float = H5_FS,
+    kinds: tuple = ("f", "dff"),
+) -> Path:
+    """Build a synthetic roigbiv .h5 trace export (see roigbiv/pipeline/export_io.py)."""
+    import pandas as pd
+
+    neuron_ids = [f"lcl:{i}" for i in range(n_neurons)]
+    time_s = np.arange(n_frames) / fs
+    rng = np.random.default_rng(7)
+
+    with pd.HDFStore(str(path), mode="w") as store:
+        for kind in kinds:
+            data = rng.normal(loc=100, scale=10, size=(n_frames, n_neurons)).astype(np.float32)
+            df = pd.DataFrame(data, index=pd.Index(time_s, name="time_s"), columns=neuron_ids)
+            store.put(f"/{kind}", df, format="table", data_columns=True)
+
+        meta = pd.DataFrame(
+            {
+                "local_label_id": list(range(n_neurons)),
+                "global_cell_id": [None] * n_neurons,
+                "fs": [fs] * n_neurons,
+                "n_frames": [n_frames] * n_neurons,
+            },
+            index=pd.Index(neuron_ids, name="neuron_id"),
+        )
+        store.put("/meta", meta, format="table", data_columns=True)
+
+    return path
+
+
+@pytest.fixture()
+def mock_h5_signal_path(tmp_path: Path) -> Path:
+    """Create a synthetic roigbiv .h5 trace export with /f and /dff kinds."""
+    return _make_roigbiv_h5(tmp_path / "mock_traces.h5")
+
+
+@pytest.fixture()
+def mock_h5_signal_only_f_path(tmp_path: Path) -> Path:
+    """Create a synthetic roigbiv .h5 export with only the /f kind present."""
+    return _make_roigbiv_h5(tmp_path / "mock_traces_f_only.h5", kinds=("f",))
+
+
+def _make_h5_event_csv(dir_: Path, n_events: int = 5) -> Path:
+    """Write a REACHER-style behavior_events.csv timed to fit the H5 fixture window."""
+    import csv
+
+    dir_.mkdir(parents=True, exist_ok=True)
+    path = dir_ / "behavior_events.csv"
+    duration_ms = (H5_N_FRAMES / H5_FS) * 1000.0
+    step = (duration_ms - 4000.0) / n_events
+
+    with path.open("w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["device", "event", "start_timestamp", "end_timestamp"])
+        ts = 2000.0
+        for _ in range(n_events):
+            writer.writerow(["RH_LEVER", "ACTIVE_PRESS", ts, ts + 100])
+            ts += step
+
+    return path
+
+
+@pytest.fixture()
+def mock_h5_event_path(tmp_path: Path) -> Path:
+    """Return a REACHER-format behavior_events.csv sized for the H5 fixture window."""
+    return _make_h5_event_csv(tmp_path / "h5_events")
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # Event fixtures
 # ──────────────────────────────────────────────────────────────────────────
 
@@ -234,4 +314,24 @@ def mock_data_hierarchy(tmp_path: Path) -> Path:
         )
         (fov_dir / "events.mat").write_bytes(b"\x00" * 128)
 
+    return tmp_path
+
+
+@pytest.fixture()
+def mock_h5_data_hierarchy(tmp_path: Path) -> Path:
+    """Like ``mock_data_hierarchy`` but with roigbiv .h5 signal files.
+
+    Structure::
+
+        tmp_path/
+          0 EarlyAcq/
+            PrL-NAc-G6-1F/
+              FOV1_tracked/
+                traces.h5
+                behavior_events.csv
+    """
+    fov_dir = tmp_path / "0 EarlyAcq" / "PrL-NAc-G6-1F" / "FOV1_tracked"
+    fov_dir.mkdir(parents=True)
+    _make_roigbiv_h5(fov_dir / "traces.h5", n_neurons=5, n_frames=H5_N_FRAMES, fs=H5_FS)
+    _make_h5_event_csv(fov_dir)
     return tmp_path
