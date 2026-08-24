@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from pathlib import Path
 
 from axplorer.alignment.session import SessionWrapper
@@ -28,6 +29,7 @@ class DataStore:
         self.hierarchy: dict[str, dict[str, list[SessionWrapper]]] = {}
         self.all_wrappers: list[SessionWrapper] = []
         self.available_events: list[str] = []
+        self.event_counts: dict[str, int] = {}
         self.population_names: list[str] = []
         self.status: str = "No data loaded."
         self.loading: bool = False
@@ -102,9 +104,17 @@ class DataStore:
         event_sets = [set(w.get_event_labels()) for w in flat]
         common = sorted(set.intersection(*event_sets)) if event_sets else []
 
+        # Aggregate per-label occurrence counts across all wrappers, restricted
+        # to the intersection so the UI never shows a count for an unavailable event.
+        counts: Counter[str] = Counter()
+        for w in flat:
+            counts.update(w.get_dataframe()["label"].value_counts().to_dict())
+        event_counts = {label: counts.get(label, 0) for label in common}
+
         self.hierarchy = hierarchy
         self.all_wrappers = flat
         self.available_events = common
+        self.event_counts = event_counts
         self.population_names = sorted(hierarchy.keys())
         pop_list = ", ".join(sorted(hierarchy.keys()))
         self.status = f"Loaded {len(flat)} FOV(s) across {len(hierarchy)} population(s): {pop_list}"

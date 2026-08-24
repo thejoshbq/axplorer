@@ -1,6 +1,7 @@
 interface LoadResponse {
   status: string;
   available_events: string[];
+  event_counts: Record<string, number>;
   fov_count: number;
   population_count: number;
   population_names: string[];
@@ -50,6 +51,7 @@ interface StatusResponse {
   status: string;
   loading: boolean;
   available_events: string[];
+  event_counts: Record<string, number>;
   fov_count: number;
   population_count: number;
   population_names: string[];

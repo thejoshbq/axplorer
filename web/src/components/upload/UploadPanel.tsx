@@ -6,6 +6,12 @@ import { FileBrowser } from "./FileBrowser";
 
 type BrowseTarget = "trace" | "event" | "frameTimestamps" | null;
 
+const BROWSE_FILE_TYPES: Record<Exclude<BrowseTarget, null>, string[]> = {
+  trace: ["npy", "h5"],
+  event: ["csv", "mat", "xlsx"],
+  frameTimestamps: ["csv"],
+};
+
 export function UploadPanel() {
   const {
     tracePath, setTracePath,
@@ -13,6 +19,7 @@ export function UploadPanel() {
     frameTimestampsPath, setFrameTimestampsPath,
     loadData, loading,
     availableH5Kinds, h5Kind, setH5Kind,
+    lastDir, setLastDir,
   } = useDataStore();
   const [browseTarget, setBrowseTarget] = useState<BrowseTarget>(null);
 
@@ -131,6 +138,9 @@ export function UploadPanel() {
         onClose={() => setBrowseTarget(null)}
         onSelect={handleBrowseSelect}
         multiSelect={false}
+        fileTypes={browseTarget ? BROWSE_FILE_TYPES[browseTarget] : undefined}
+        initialPath={lastDir ?? undefined}
+        onNavigate={setLastDir}
       />
     </div>
   );
