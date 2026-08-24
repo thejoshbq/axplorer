@@ -5,7 +5,7 @@ import { useAnalysisStore } from "../../store/useAnalysisStore";
 import { usePlotStore } from "../../store/usePlotStore";
 
 export function ControlsPanel() {
-  const { availableEvents, signalKind } = useDataStore();
+  const { availableEvents, eventCounts, signalKind } = useDataStore();
   const a = useAnalysisStore();
 
   // Loaded signal is already DeltaF/F -- default the DF/F step off so it
@@ -26,7 +26,7 @@ export function ControlsPanel() {
         <label className="block text-label text-ink-muted mb-s1">
           Events {a.eventLabels.length > 0 && `(${a.eventLabels.length} selected)`}
         </label>
-        <div className="max-h-32 overflow-y-auto space-y-s1 border border-edge rounded px-s2 py-s1">
+        <div className="max-h-[26rem] overflow-y-auto space-y-s1 border border-edge rounded px-s2 py-s1">
           {availableEvents.length === 0 && (
             <span className="text-label text-ink-faint">No events available.</span>
           )}
@@ -38,7 +38,8 @@ export function ControlsPanel() {
                 onChange={() => a.toggleEventLabel(ev)}
                 className="accent-accent"
               />
-              {ev}
+              <span className="flex-1 truncate">{ev}</span>
+              <span className="text-ink-faint">({eventCounts[ev] ?? 0})</span>
             </label>
           ))}
         </div>

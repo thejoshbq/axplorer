@@ -44,12 +44,6 @@ body {
   font-family: var(--font-ui);
   background-color: var(--surface-0);
   color: var(--text);
-  cursor: none;
-}
-a,
-button,
-[role="button"] {
-  cursor: none;
 }
 
 /* Custom scrollbar */

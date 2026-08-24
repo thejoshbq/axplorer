@@ -46,6 +46,7 @@ class DetectResponse(BaseModel):
 class LoadResponse(BaseModel):
     status: str
     available_events: list[str]
+    event_counts: dict[str, int]
     fov_count: int
     population_count: int
     population_names: list[str]
@@ -55,6 +56,7 @@ class StatusResponse(BaseModel):
     status: str
     loading: bool
     available_events: list[str]
+    event_counts: dict[str, int]
     fov_count: int
     population_count: int
     population_names: list[str]
@@ -115,6 +117,7 @@ def load_data(req: LoadRequest) -> LoadResponse:
     return LoadResponse(
         status=store.status,
         available_events=store.available_events,
+        event_counts=store.event_counts,
         fov_count=len(store.all_wrappers),
         population_count=len(store.hierarchy),
         population_names=store.population_names,
@@ -140,6 +143,7 @@ def get_status() -> StatusResponse:
         status=store.status,
         loading=store.loading,
         available_events=store.available_events,
+        event_counts=store.event_counts,
         fov_count=len(store.all_wrappers),
         population_count=len(store.hierarchy),
         population_names=store.population_names,

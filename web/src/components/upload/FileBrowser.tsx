@@ -54,6 +54,12 @@ interface FileBrowserProps {
   onClose: () => void;
   onSelect: (paths: string[]) => void;
   multiSelect?: boolean;
+  /** Restrict visible non-directory entries to these types (e.g. ["npy", "h5"]). Unfiltered when omitted. */
+  fileTypes?: string[];
+  /** Directory to open in; falls back to "~" when omitted. */
+  initialPath?: string;
+  /** Called with the resolved current directory on every navigation. */
+  onNavigate?: (path: string) => void;
 }
 
 export function FileBrowser({
@@ -61,6 +67,9 @@ export function FileBrowser({
   onClose,
   onSelect,
   multiSelect = true,
+  fileTypes,
+  initialPath,
+  onNavigate,
 }: FileBrowserProps) {
   const [data, setData] = useState<BrowseResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,21 +83,24 @@ export function FileBrowser({
     try {
       const res = await api.browse(path);
       setData(res);
+      onNavigate?.(res.current);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Browse failed");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onNavigate]);
 
   useEffect(() => {
-    if (open) navigate("~");
-  }, [open, navigate]);
+    if (open) navigate(initialPath ?? "~");
+    // Intentionally excludes initialPath/navigate: re-navigating on every
+    // lastDir update (which initialPath tracks) would fight user browsing.
+  }, [open]);
 
   if (!open) return null;
 
   const visibleEntries = (data?.entries ?? []).filter(
-    (e) => e.type === "dir" || e.type !== "file",
+    (e) => e.type === "dir" || (fileTypes ? fileTypes.includes(e.type) : e.type !== "file"),
   );
 
   const toggleSelect = (path: string, e: React.MouseEvent) => {

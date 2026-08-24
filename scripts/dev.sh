@@ -56,6 +56,7 @@ $PY api.app:app --host 127.0.0.1 --port "$BACKEND_PORT" --reload &
 backend_pid=$!
 
 # Wait (up to ~20s) for backend to accept connections before starting Vite.
+backend_ready=""
 for _ in $(seq 1 40); do
   if ! kill -0 "$backend_pid" 2>/dev/null; then
     echo "[dev] backend exited before it was ready -- aborting" >&2
@@ -63,10 +64,16 @@ for _ in $(seq 1 40); do
   fi
   if (exec 3<>/dev/tcp/127.0.0.1/"$BACKEND_PORT") 2>/dev/null; then
     echo "[dev] backend: OK (${BACKEND_PORT})"
+    backend_ready=1
     break
   fi
   sleep 0.5
 done
+
+if [[ -z "$backend_ready" ]]; then
+  echo "[dev] backend did not become ready on :${BACKEND_PORT} after 20s -- aborting" >&2
+  exit 1
+fi
 
 echo "[dev] starting frontend: npm --prefix web run dev"
 echo "[dev] Vite binds all interfaces -- use its printed Network URL from other devices"
