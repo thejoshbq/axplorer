@@ -14,10 +14,8 @@ export default function App() {
           <PlotGrid />
         </main>
       </div>
-      <footer className="bg-surface-2 border-t border-edge px-s5 py-s2 text-center">
-        <span className="font-ui text-micro tracking-caps uppercase text-ink-faint">
-          (c) 2026 LOGISTECH // ALL RIGHTS RESERVED // BUILD 2.0.0
-        </span>
+      <footer className="phoxel-footer">
+        (c) 2026 LOGISTECH // ALL RIGHTS RESERVED // BUILD {__APP_VERSION__}
       </footer>
     </div>
   );

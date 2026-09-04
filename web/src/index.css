@@ -1,4 +1,5 @@
 @import "@phoxel/tokens/css";
+@import "@phoxel/tokens/chrome";
 
 @font-face {
   font-family: "JetBrains Mono";
@@ -75,10 +76,6 @@ body {
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 6px var(--accent-soft); }
   50% { box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 35%, transparent); }
-}
-
-.title-glow {
-  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 40%, transparent));
 }
 
 @layer components {
@@ -237,7 +234,7 @@ body {
    AXPLORER CHROME -- typography, glitch/terminal/status decoration
    ================================================================= */
 
-h1,
+h1:not(.phoxel-wordmark),
 h2,
 h3,
 h4,
@@ -270,43 +267,7 @@ code {
   font-family: var(--font-ui);
 }
 
-/* Section divider */
-.h-line {
-  display: flex;
-  align-items: center;
-  gap: var(--s3);
-  margin: var(--s4) 0 var(--s2);
-}
-
-.h-line::before {
-  content: attr(data-prefix);
-  font-family: var(--font-ui);
-  font-size: var(--fs-micro);
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.h-line::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--accent-soft), transparent);
-}
-
-/* Glitch hover */
-@keyframes glitch-effect {
-  0% { clip-path: inset(40% 0 61% 0); transform: skewX(0deg); }
-  20% { clip-path: inset(92% 0 1% 0); transform: skewX(-2deg); }
-  40% { clip-path: inset(43% 0 1% 0); transform: skewX(1deg); }
-  60% { clip-path: inset(25% 0 58% 0); transform: skewX(-1deg); }
-  80% { clip-path: inset(54% 0 7% 0); transform: skewX(2deg); }
-  100% { clip-path: inset(58% 0 43% 0); transform: skewX(0deg); }
-}
-
-.glitch-hover:hover {
-  animation: glitch-effect 0.3s linear;
-}
+/* Wordmark glow, glitch, SYS_ONLINE and .h-line come from @phoxel/tokens/chrome. */
 
 /* Blinking cursor */
 .blink-cursor::after {
@@ -326,57 +287,4 @@ code {
 .reveal.visible {
   opacity: 1;
   transform: none;
-}
-
-/* Terminal header bar */
-.terminal-header {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
-  padding: var(--s1) var(--s3);
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
-}
-
-.terminal-header .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-/* Decorative macOS-style traffic lights -- no token role for these. */
-.terminal-header .dot-red { background: #ff5f56; }
-.terminal-header .dot-yellow { background: #ffbd2e; }
-.terminal-header .dot-green { background: #27c93f; }
-
-.terminal-header .terminal-label {
-  font-family: var(--font-ui);
-  font-size: var(--fs-micro);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-left: auto;
-}
-
-/* SYS_ONLINE indicator */
-.sys-online {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s1);
-  margin-left: var(--s3);
-}
-
-.sys-online .pulse-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.sys-online .sys-label {
-  font-family: var(--font-ui);
-  font-size: var(--fs-micro);
-  letter-spacing: var(--tracking-caps);
-  color: var(--accent);
 }

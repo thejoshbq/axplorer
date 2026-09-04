@@ -23,10 +23,10 @@ function BrainSearchIcon() {
 
 export function Header() {
   return (
-    <header className="crt bg-surface-2 border-b border-edge px-s5 py-s3 flex items-center justify-between">
+    <header className="phoxel-header crt">
       <div className="flex items-center gap-s3">
         <BrainSearchIcon />
-        <h1 className="text-h1 font-display font-bold text-accent title-glow tracking-wide glitch-hover">
+        <h1 className="phoxel-wordmark title-glow glitch-hover">
           // Axplorer
         </h1>
         <div className="sys-online">
